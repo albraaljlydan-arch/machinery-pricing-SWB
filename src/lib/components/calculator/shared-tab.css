@@ -1,0 +1,332 @@
+/* ============================================================================
+   Shared styles for every material tab component — faithfully ported from
+   the original app's index.css (many iterations of refinement went into
+   these exact values: spacing, colors, disabled/placeholder states, etc.)
+   Only real addition here: RTL-safety for numeric cells, since the app
+   shell is now RTL (dir="rtl" on <html>) where the calculator never was
+   before — numbers still need to render left-to-right regardless.
+   ============================================================================ */
+
+.card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+  width: 100%;
+  box-sizing: border-box;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  color: var(--ink);
+}
+
+.card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid var(--border);
+  padding: 8px 12px;
+  flex-wrap: wrap;
+  gap: 8px;
+  border-radius: 8px 8px 0 0;
+}
+
+.card-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.card-title h2 {
+  font-size: 15px;
+  margin: 0;
+  color: var(--ink);
+  font-weight: 700;
+}
+
+.tag {
+  background: var(--amber-bg, #eff6ff);
+  color: var(--navy-3, #2563eb);
+  font-weight: bold;
+  padding: 2px 7px;
+  border-radius: 4px;
+  font-size: 12px;
+  /* Numbering itself is a stable id (01, 02...), always shown LTR regardless
+     of the surrounding RTL flow. */
+  direction: ltr;
+  unicode-bidi: isolate;
+}
+
+.btn-add {
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: 500;
+  font-family: inherit;
+  font-size: 12px;
+  padding: 5px 10px;
+  background-color: var(--navy-3, #2563eb);
+  color: #ffffff;
+  transition: background-color 0.15s;
+}
+.btn-add:hover {
+  background-color: var(--navy, #1d4ed8);
+}
+
+.table-wrap {
+  width: 100%;
+  overflow-x: hidden;
+  overflow-y: visible;
+  -webkit-overflow-scrolling: touch;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+  table-layout: fixed;
+}
+
+th {
+  background-color: var(--paper);
+  color: var(--ink-soft);
+  font-weight: 600;
+  font-size: 11px;
+  border-bottom: 2px solid var(--border);
+  white-space: normal;
+  word-break: break-word;
+  line-height: 1.3;
+  padding: 9px 6px;
+  text-align: center;
+}
+
+td {
+  border-bottom: 1px solid var(--border);
+  vertical-align: middle;
+  padding: 6px 5px;
+  font-size: 12px;
+  text-align: center;
+  color: var(--ink);
+}
+tbody tr:hover {
+  background-color: var(--paper);
+}
+tr.error-row {
+  background-color: var(--danger-bg, #fef2f2);
+}
+
+/* Custom-size split cell: dropdown + free input side by side, each exactly
+   half the column's fixed width — the column itself never resizes. */
+.split {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px;
+  width: 100%;
+  min-width: 0;
+}
+.split :global(input),
+.split select {
+  width: 100%;
+  min-width: 0;
+}
+
+/* Number input + short unit suffix (mm, kg...) for Developer-added custom
+   columns — unlike .split above, the suffix column only takes as much
+   width as its text needs, the input gets the rest. */
+.split.unit-split {
+  grid-template-columns: 1fr auto;
+  align-items: center;
+}
+.unit-suffix {
+  font-size: 11.5px;
+  color: var(--ink-soft);
+  white-space: nowrap;
+}
+
+/* Rejection flagging — a flagged row (Admin ticked it while reviewing)
+   gets the same red highlight here, inside the live editable table, as it
+   did on Admin's review screen — plus the reason directly underneath it. */
+tr.row-flagged td {
+  background: var(--danger-bg, #fdecea);
+}
+tr.row-flagged td:first-child {
+  box-shadow: inset 3px 0 0 var(--danger, #d9342b);
+}
+tr.flag-reason-row td {
+  padding: 0 8px 8px !important;
+  border-bottom: 1px solid var(--border);
+  background: var(--danger-bg, #fdecea);
+}
+.flag-reason-note {
+  display: inline-block;
+  border: 1px solid var(--danger, #d9342b);
+  background: var(--card);
+  border-radius: 6px;
+  padding: 5px 10px;
+  font-size: 11.5px;
+  color: var(--danger-deep, #7a1610);
+}
+
+select,
+.input {
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  padding: 4px 7px;
+  font-size: 12px;
+  outline: none;
+  background-color: var(--card);
+  color: var(--ink);
+  text-align: center;
+  transition:
+    border-color 0.15s ease,
+    box-shadow 0.15s ease,
+    background-color 0.15s ease;
+  font-family: inherit;
+  width: 100%;
+}
+select:focus,
+.input:focus {
+  border-color: var(--navy-3, #3b82f6);
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.18);
+}
+select:disabled,
+.input:disabled {
+  background-color: var(--paper);
+  color: var(--ink-soft);
+  cursor: not-allowed;
+}
+/* A field genuinely empty (showing its placeholder) gets a dark-grey fill so
+   it reads at a glance as "not filled in yet". Filled fields stay themed. */
+.input:placeholder-shown {
+  background-color: var(--steel-2, #94a3b8);
+}
+.input:placeholder-shown::placeholder {
+  color: var(--paper);
+  opacity: 1;
+}
+.input-dim,
+.input-qty {
+  width: 100%;
+  text-align: center;
+}
+
+.err-text {
+  color: var(--danger, #ef4444);
+  font-size: 10.5px;
+  margin-top: 2px;
+  line-height: 1.3;
+}
+
+.idx {
+  font-weight: 600;
+  color: var(--ink-soft);
+  direction: ltr;
+  unicode-bidi: isolate;
+}
+
+/* Every numeric display cell — weight, $/kg, totals. Values are always
+   Western digits; isolating direction:ltr here is the one thing the
+   original (pure-LTR) app never had to do, and the new RTL shell does. */
+.num {
+  white-space: nowrap;
+  text-align: center;
+  font-size: 12px;
+  direction: ltr;
+  unicode-bidi: isolate;
+}
+.num.readonly {
+  color: var(--navy-3, #2563eb);
+  font-weight: bold;
+}
+.num.total {
+  font-weight: bold;
+  color: var(--amber-ink, #b45309);
+}
+
+.btn-del {
+  border: 1px solid var(--border);
+  background: var(--card);
+  border-radius: 4px;
+  cursor: pointer;
+  padding: 2px 6px;
+  font-size: 10px;
+  color: var(--danger, #ef4444);
+  transition: background-color 0.15s;
+}
+.btn-del:hover {
+  background-color: var(--danger-bg, #fef2f2);
+}
+
+/* ---------- Tab ledger (dark footer bar shared by every tab) ---------- */
+.ledger {
+  background-color: #1e293b;
+  padding: 14px 20px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-radius: 0 0 8px 8px;
+  margin-top: 0;
+}
+.ledger > div {
+  display: flex;
+  flex-direction: column;
+}
+.lbl {
+  color: #94a3b8;
+  font-size: 12px;
+  font-weight: 500;
+  margin-bottom: 2px;
+}
+.val {
+  font-size: 21px;
+  font-weight: bold;
+  direction: ltr;
+  unicode-bidi: isolate;
+}
+.val:not(.discount):not(.price) {
+  color: #ffffff;
+}
+.val.discount {
+  color: #f87171;
+}
+.val.price {
+  color: #10b981;
+}
+
+.text-center {
+  text-align: center !important;
+}
+
+/* Order Tab needs its card to NOT clip contents once a searchable-select
+   dropdown panel is added (that panel can extend past its row) — reserved
+   for when that feature is ported over; harmless while unused. */
+.card-order-tab {
+  overflow: visible;
+}
+
+@media (max-width: 900px) {
+  .card-header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+}
+
+/* ---------- Discount input (Procurement only) — sits in its own column,
+   right before Total ($). Matches the original ledger-box discount input's
+   look, reused per-row here instead of once at the bottom of the tab. ---------- */
+.discount-input {
+  width: 100%;
+  background-color: var(--card);
+  color: var(--danger-deep, #b91c1c);
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  padding: 4px 7px;
+  font-size: 12px;
+  font-weight: bold;
+  text-align: center;
+  outline: none;
+  font-family: inherit;
+  direction: ltr;
+  unicode-bidi: isolate;
+}
+.discount-input:focus {
+  border-color: var(--danger, #ef4444);
+  box-shadow: 0 0 0 2px rgba(239, 68, 68, 0.18);
+}

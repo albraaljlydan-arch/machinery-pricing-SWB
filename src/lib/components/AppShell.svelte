@@ -1,0 +1,628 @@
+<script lang="ts">
+  // ==========================================================================
+  //  APP SHELL — the navy/amber sidebar + topbar chrome, extracted from
+  //  Admin's approved dashboard mockup so every role's dashboard can reuse
+  //  the EXACT same look/feel instead of re-implementing it. Each role just
+  //  passes its own (shorter or longer) nav list and role label — the shell
+  //  itself never changes.
+  // ==========================================================================
+  import { page } from '$app/stores';
+  import { supabase } from '$lib/supabaseClient';
+  import { auth } from '$lib/stores/auth';
+  import { locale } from '$lib/stores/locale';
+  import { theme } from '$lib/stores/theme';
+  import { t } from '$lib/i18n/dict';
+  import { REPORT_LOGO_BASE64 } from '$lib/calc/reportLogo';
+  import type { NavItem, NavGroup } from './navTypes';
+
+  export let navGroups: NavGroup[];
+  export let pageTitle: string;
+  export let roleLabel: string;
+  export let searchPlaceholder: string | undefined = undefined;
+
+  $: currentPath = $page.url.pathname;
+  $: currentFull = currentPath + decodeURIComponent($page.url.search);
+
+  interface NotificationRow {
+    id: string;
+    message: string;
+    link: string | null;
+    is_read: boolean;
+    created_at: string;
+  }
+  let notifications: NotificationRow[] = [];
+  let notifOpen = false;
+  $: unreadCount = notifications.filter((n) => !n.is_read).length;
+
+  async function loadNotifications() {
+    const userId = $auth.session?.user.id;
+    if (!userId) return;
+    const { data, error } = await supabase.from('notifications').select('*').eq('user_id', userId).order('created_at', { ascending: false }).limit(30);
+    if (!error) notifications = data || [];
+  }
+  $: if ($auth.session?.user.id) loadNotifications();
+
+  async function toggleNotifPanel() {
+    notifOpen = !notifOpen;
+  }
+
+  async function markAllRead() {
+    const unreadIds = notifications.filter((n) => !n.is_read).map((n) => n.id);
+    if (unreadIds.length === 0) return;
+    notifications = notifications.map((n) => ({ ...n, is_read: true }));
+    await supabase.from('notifications').update({ is_read: true }).in('id', unreadIds);
+  }
+
+  async function openNotification(n: NotificationRow) {
+    if (!n.is_read) {
+      notifications = notifications.map((x) => (x.id === n.id ? { ...x, is_read: true } : x));
+      await supabase.from('notifications').update({ is_read: true }).eq('id', n.id);
+    }
+    notifOpen = false;
+    if (n.link) window.location.href = n.link;
+  }
+
+  // Mobile only — the sidebar becomes an off-canvas drawer below 820px
+  // instead of an in-flow block pushing the page content down.
+  let mobileNavOpen = false;
+  $: if ($page.url.pathname) mobileNavOpen = false;
+
+  function handleSignOut() {
+    supabase.auth.signOut();
+  }
+
+  function toggleTheme() {
+    theme.set($theme === 'light' ? 'dark' : 'light');
+  }
+  function setLocale(l: 'ar' | 'en') {
+    locale.set(l);
+  }
+</script>
+
+<div class="shell" class:nav-open={mobileNavOpen}>
+  <!-- svelte-ignore a11y_click_events_have_key_events -->
+  <div class="backdrop" on:click={() => (mobileNavOpen = false)} role="presentation"></div>
+  <aside class="sidebar">
+    <div class="brand">
+      <div class="logo-card">
+        <img class="brand-mark" src={REPORT_LOGO_BASE64} alt="SWB Technology" />
+      </div>
+      <span class="role-tag">{roleLabel.toUpperCase()}</span>
+    </div>
+
+    <nav class="navlist">
+      {#each navGroups as group}
+        <div class="nav-label">{group.section}</div>
+        {#each group.items as item}
+          <a class="nav-item" class:active={item.href.includes('?') ? item.href === currentFull : currentPath === item.href && !$page.url.search} href={item.href}>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+              {#if item.icon === 'overview'}
+                <circle cx="12" cy="12" r="3.2" /><path d="M12 3v2.2M12 18.8V21M21 12h-2.2M5.2 12H3M18.4 5.6l-1.6 1.6M7.2 16.8l-1.6 1.6M18.4 18.4l-1.6-1.6M7.2 7.2 5.6 5.6" />
+              {:else if item.icon === 'grid'}
+                <rect x="3" y="3" width="7.5" height="7.5" rx="1.5" /><rect x="13.5" y="3" width="7.5" height="7.5" rx="1.5" /><rect x="3" y="13.5" width="7.5" height="7.5" rx="1.5" /><rect x="13.5" y="13.5" width="7.5" height="7.5" rx="1.5" />
+              {:else if item.icon === 'clock'}
+                <path d="M14 3v4a1 1 0 0 0 1 1h4" /><path d="M6 3h8l5 5v11a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2Z" />
+              {:else if item.icon === 'x'}
+                <path d="M18 6 6 18M6 6l12 12" />
+              {:else if item.icon === 'gear'}
+                <path d="M12 2v20M17 5.5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" />
+              {:else if item.icon === 'chart'}
+                <circle cx="12" cy="12" r="9" /><path d="M12 7v5l3 3" />
+              {:else if item.icon === 'users'}
+                <circle cx="9" cy="8" r="3.2" /><path d="M2.5 20c.8-3.6 3.4-5.6 6.5-5.6s5.7 2 6.5 5.6" /><circle cx="17.5" cy="8.5" r="2.4" /><path d="M16.3 14.6c2.4.3 4.1 2 4.7 4.6" />
+              {:else if item.icon === 'bars'}
+                <path d="M4 20V10M11 20V4M18 20v-7" />
+              {:else if item.icon === 'tag'}
+                <path d="M20.6 12.9 12.9 20.6a2 2 0 0 1-2.8 0l-6.7-6.7a2 2 0 0 1 0-2.8L11.1 3.4a2 2 0 0 1 1.4-.6H18a2 2 0 0 1 2 2v5.6a2 2 0 0 1-.6 1.5Z" /><circle cx="15.5" cy="8.5" r="1.4" />
+              {/if}
+            </svg>
+            {item.label}
+            {#if item.badgeCount !== undefined && item.badgeCount > 0}
+              <span class="badge">{item.badgeCount}</span>
+            {:else if item.badgeText}
+              <span class="badge new">{item.badgeText}</span>
+            {/if}
+          </a>
+        {/each}
+      {/each}
+    </nav>
+
+    <div class="sidebar-foot">SWB Manufacturing System v1.1<br />{$auth.session?.user?.email ?? ''}</div>
+  </aside>
+
+  <div class="main">
+    <header class="topbar">
+      <button class="hamburger" on:click={() => (mobileNavOpen = !mobileNavOpen)} aria-label={t($locale, 'homeSection')}>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M4 12h16M4 17h16" /></svg>
+      </button>
+      <h1>{pageTitle}</h1>
+      <div class="search-wrap">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7" /><path d="m21 21-4.3-4.3" /></svg>
+        <input type="text" placeholder={searchPlaceholder ?? t($locale, 'searchPlaceholder')} />
+      </div>
+      <div class="topbar-right">
+        <div class="lang-switch">
+          <button class:active={$locale === 'ar'} on:click={() => setLocale('ar')}>العربية</button>
+          <button class:active={$locale === 'en'} on:click={() => setLocale('en')}>English</button>
+        </div>
+        <button class="icon-btn" on:click={toggleTheme} aria-label={$theme === 'light' ? t($locale, 'darkMode') : t($locale, 'lightMode')} title={$theme === 'light' ? t($locale, 'darkMode') : t($locale, 'lightMode')}>
+          {#if $theme === 'light'}
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8Z" /></svg>
+          {:else}
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4" /><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4" /></svg>
+          {/if}
+        </button>
+        <div class="notif-wrap">
+          <button class="icon-btn" on:click={toggleNotifPanel} aria-label={t($locale, 'notifications')} title={t($locale, 'notifications')}>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8a6 6 0 1 0-12 0c0 7-3 9-3 9h18s-3-2-3-9" /><path d="M13.7 21a2 2 0 0 1-3.4 0" /></svg>
+            {#if unreadCount > 0}<span class="dot-badge">{unreadCount}</span>{/if}
+          </button>
+          {#if notifOpen}
+            <!-- svelte-ignore a11y_click_events_have_key_events -->
+            <div class="notif-backdrop" on:click={() => (notifOpen = false)} role="presentation"></div>
+            <div class="notif-panel">
+              <div class="notif-panel-head">
+                <span>{t($locale, 'notifications')}</span>
+                {#if unreadCount > 0}<button class="notif-markall" on:click={markAllRead}>{t($locale, 'markAllReadBtn')}</button>{/if}
+              </div>
+              {#if notifications.length === 0}
+                <div class="notif-empty">{t($locale, 'noNotificationsYet')}</div>
+              {:else}
+                <div class="notif-list">
+                  {#each notifications as n (n.id)}
+                    <button class="notif-item" class:unread={!n.is_read} on:click={() => openNotification(n)}>
+                      <span class="notif-dot" class:show={!n.is_read}></span>
+                      <span class="notif-msg">{n.message}</span>
+                    </button>
+                  {/each}
+                </div>
+              {/if}
+            </div>
+          {/if}
+        </div>
+        <div class="profile-chip">
+          <div class="avatar">{($auth.session?.user?.email ?? '??').slice(0, 2).toUpperCase()}</div>
+          <div class="who"><b>{$auth.session?.user?.email ?? ''}</b><span>{roleLabel}</span></div>
+        </div>
+        <button class="icon-btn" on:click={handleSignOut} aria-label={t($locale, 'signOut')} title={t($locale, 'signOut')}>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" /><path d="M16 17l5-5-5-5M21 12H9" /></svg>
+        </button>
+      </div>
+    </header>
+
+    <div class="content">
+      <slot />
+    </div>
+  </div>
+</div>
+
+<style>
+  .shell {
+    display: grid;
+    grid-template-columns: 260px 1fr;
+    min-height: 100vh;
+  }
+  .sidebar {
+    background: var(--navy);
+    background-image: linear-gradient(var(--cyan-line) 1px, transparent 1px), linear-gradient(90deg, var(--cyan-line) 1px, transparent 1px);
+    background-size: 22px 22px;
+    color: #eaf4f8;
+    padding: 22px 16px 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    position: sticky;
+    top: 0;
+    height: 100vh;
+    overflow-y: auto;
+    border-inline-start: 3px solid var(--amber);
+  }
+  .brand {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 9px;
+    padding: 8px 6px 16px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+  }
+  .logo-card {
+    background: #fff;
+    border-radius: 8px;
+    padding: 8px 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .brand-mark {
+    width: 100%;
+    height: auto;
+    display: block;
+  }
+  .role-tag {
+    font-size: 11px;
+    color: var(--cyan);
+    letter-spacing: 0.5px;
+    padding: 0 2px;
+  }
+  nav.navlist {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+  .nav-label {
+    font-size: 11px;
+    color: #7fa9be;
+    letter-spacing: 1px;
+    padding: 14px 10px 6px;
+    text-transform: uppercase;
+  }
+  .nav-item {
+    display: flex;
+    align-items: center;
+    gap: 11px;
+    padding: 10px 12px;
+    border-radius: 9px;
+    font-size: 14px;
+    font-weight: 500;
+    color: #cfe4ec;
+  }
+  .nav-item svg {
+    width: 18px;
+    height: 18px;
+    flex-shrink: 0;
+    opacity: 0.9;
+  }
+  .nav-item:hover {
+    background: rgba(255, 255, 255, 0.06);
+    color: #fff;
+  }
+  .nav-item.active {
+    background: var(--navy-3);
+    color: #fff;
+    box-shadow: inset 3px 0 0 var(--amber);
+  }
+  .nav-item .badge {
+    margin-inline-start: auto;
+    background: var(--amber);
+    color: #3b2504;
+    font-family: var(--font-mono);
+    font-weight: 700;
+    font-size: 10.5px;
+    padding: 1px 7px;
+    border-radius: 20px;
+  }
+  .nav-item .badge.new {
+    background: var(--purple);
+    color: #fff;
+    font-size: 9.5px;
+  }
+  .sidebar-foot {
+    margin-top: auto;
+    padding: 12px 10px;
+    font-size: 11px;
+    color: #6c93a8;
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+    font-family: var(--font-mono);
+    line-height: 1.7;
+    word-break: break-all;
+  }
+
+  .main {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+  }
+  .topbar {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 16px 28px;
+    background: var(--card);
+    border-bottom: 1px solid var(--border);
+    position: sticky;
+    top: 0;
+    z-index: 5;
+  }
+  .hamburger {
+    display: none;
+    width: 36px;
+    height: 36px;
+    border-radius: 9px;
+    border: 1px solid var(--border);
+    background: var(--paper);
+    color: var(--ink-soft);
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+  .hamburger svg {
+    width: 19px;
+    height: 19px;
+  }
+  .backdrop {
+    display: none;
+  }
+  .topbar h1 {
+    font-size: 18px;
+    margin: 0;
+    font-weight: 900;
+  }
+  .search-wrap {
+    flex: 1;
+    max-width: 400px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: var(--paper);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 9px 14px;
+    margin-inline-start: 12px;
+  }
+  .search-wrap svg {
+    width: 17px;
+    height: 17px;
+    color: var(--steel-2);
+    flex-shrink: 0;
+  }
+  .search-wrap input {
+    border: none;
+    background: transparent;
+    outline: none;
+    font-family: inherit;
+    font-size: 13.5px;
+    width: 100%;
+    color: var(--ink);
+  }
+  .topbar-right {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    margin-inline-start: auto;
+  }
+  .lang-switch {
+    display: flex;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    overflow: hidden;
+    background: var(--paper);
+    flex-shrink: 0;
+  }
+  .lang-switch button {
+    border: none;
+    background: transparent;
+    color: var(--ink-soft);
+    font-size: 12.5px;
+    font-weight: 700;
+    padding: 8px 12px;
+  }
+  .lang-switch button.active {
+    background: var(--navy);
+    color: #fff;
+  }
+  .icon-btn {
+    position: relative;
+    width: 38px;
+    height: 38px;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--paper);
+    border: 1px solid var(--border);
+    color: var(--ink-soft);
+  }
+  .icon-btn svg {
+    width: 18px;
+    height: 18px;
+  }
+  .dot-badge {
+    position: absolute;
+    top: -4px;
+    left: -4px;
+    background: var(--danger);
+    color: #fff;
+    font-family: var(--font-mono);
+    font-size: 9.5px;
+    font-weight: 700;
+    min-width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 2px solid var(--card);
+  }
+  .notif-wrap {
+    position: relative;
+  }
+  .notif-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 40;
+  }
+  .notif-panel {
+    position: absolute;
+    top: calc(100% + 8px);
+    inset-inline-end: 0;
+    width: 320px;
+    max-height: 420px;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    box-shadow: var(--shadow);
+    z-index: 41;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+  .notif-panel-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 14px;
+    border-bottom: 1px solid var(--border);
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--ink);
+  }
+  .notif-markall {
+    background: transparent;
+    border: none;
+    color: var(--navy-3, #17456a);
+    font-size: 11.5px;
+    font-weight: 700;
+    cursor: pointer;
+  }
+  .notif-empty {
+    padding: 26px 16px;
+    text-align: center;
+    font-size: 12.5px;
+    color: var(--ink-soft);
+  }
+  .notif-list {
+    overflow-y: auto;
+  }
+  .notif-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    width: 100%;
+    text-align: start;
+    background: transparent;
+    border: none;
+    border-bottom: 1px solid var(--border);
+    padding: 10px 14px;
+    cursor: pointer;
+    font-size: 12.5px;
+    color: var(--ink);
+  }
+  .notif-item:last-child {
+    border-bottom: none;
+  }
+  .notif-item.unread {
+    background: var(--paper);
+    font-weight: 600;
+  }
+  .notif-dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: var(--danger, #d9503a);
+    margin-top: 5px;
+    flex-shrink: 0;
+    visibility: hidden;
+  }
+  .notif-dot.show {
+    visibility: visible;
+  }
+  .notif-msg {
+    line-height: 1.5;
+  }
+  .profile-chip {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    padding: 5px 12px 5px 6px;
+    border: 1px solid var(--border);
+    border-radius: 30px;
+    background: var(--paper);
+    max-width: 220px;
+  }
+  .avatar {
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    background: linear-gradient(155deg, var(--navy-3), var(--navy));
+    color: #eaf4f8;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    font-size: 12.5px;
+    font-family: var(--font-mono);
+    flex-shrink: 0;
+  }
+  .profile-chip .who {
+    overflow: hidden;
+  }
+  .profile-chip .who b {
+    display: block;
+    font-size: 12px;
+    font-weight: 700;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .profile-chip .who span {
+    display: block;
+    font-size: 10.5px;
+    color: var(--ink-soft);
+  }
+
+  .content {
+    padding: 26px 28px 60px;
+    display: flex;
+    flex-direction: column;
+    gap: 26px;
+  }
+
+  @media (max-width: 820px) {
+    .shell {
+      grid-template-columns: 1fr;
+    }
+    .hamburger {
+      display: flex;
+    }
+    .sidebar {
+      position: fixed;
+      inset-inline-start: 0;
+      top: 0;
+      height: 100vh;
+      width: 260px;
+      z-index: 30;
+      transform: translateX(-100%);
+      transition: transform 0.2s ease;
+    }
+    :global(html[dir='rtl']) .sidebar {
+      transform: translateX(100%);
+    }
+    .shell.nav-open .sidebar {
+      transform: translateX(0);
+    }
+    .shell.nav-open .backdrop {
+      display: block;
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.45);
+      z-index: 20;
+    }
+    .search-wrap {
+      display: none;
+    }
+    .topbar {
+      padding: 14px 16px;
+      gap: 10px;
+    }
+    .profile-chip .who {
+      display: none;
+    }
+    .lang-switch button {
+      padding: 7px 9px;
+      font-size: 11.5px;
+    }
+  }
+
+  @media (max-width: 480px) {
+    .topbar-right {
+      gap: 6px;
+    }
+    .lang-switch button {
+      padding: 6px 8px;
+      font-size: 10.5px;
+    }
+    .content {
+      padding: 18px 14px 40px;
+    }
+  }
+</style>

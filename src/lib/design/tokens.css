@@ -1,0 +1,211 @@
+/* ============================================================================
+   SWB Manufacturing System — Design tokens
+   Matches the Admin dashboard mockup approved by the client: dark navy
+   sidebar with a subtle cyan grid, amber accent, "perforated-corner" plate
+   cards for KPIs. Noto Sans Arabic for Arabic UI text, Inter for English UI
+   text (each applied automatically via html[lang]), Inconsolata for every
+   numeric/technical value (prices, weights, dates, counts) — chosen
+   specifically because its zero has no dot through the middle.
+   ============================================================================ */
+
+:root {
+  --navy: #0e2a3f;
+  --navy-2: #123a56;
+  --navy-3: #17456a;
+  --cyan: #8fd6e8;
+  --cyan-line: rgba(143, 214, 232, 0.14);
+  --cyan-line-strong: rgba(143, 214, 232, 0.28);
+
+  --paper: #f2f5f1;
+  --card: #ffffff;
+  --ink: #0f222e;
+  --ink-soft: #4c616c;
+  --steel: #80929c;
+  --steel-2: #7c8b96;
+  --border: #dee4df;
+
+  --amber: #f2a93b;
+  --amber-ink: #7a4e0c;
+  --amber-bg: #fceed4;
+
+  --danger: #d9503a;
+  --danger-bg: #fbe2dc;
+  --danger-deep: #b91c1c;
+
+  --success: #3f9463;
+  --success-bg: #dff0e4;
+  --success-deep: #047857;
+
+  --purple: #6d4fc1;
+  --purple-bg: #e9e3fa;
+  --purple-ink: #3f2e82;
+
+  --radius: 14px;
+  --shadow: 0 1px 2px rgba(15, 34, 46, 0.04), 0 8px 24px -12px rgba(15, 34, 46, 0.12);
+
+  --font-ar: 'Noto Sans Arabic', sans-serif;
+  --font-en: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font-mono: 'Inconsolata', monospace;
+  --font-body: var(--font-ar);
+}
+
+/* The active UI language decides the body font — set once here rather
+   than scattered per-page, so every screen picks it up automatically and
+   there's exactly one place to change it. The calculator is exempt: it
+   sets its own font directly on its root element regardless of html[lang],
+   since it's always English content by design. */
+html[lang='ar'] {
+  --font-body: var(--font-ar);
+}
+html[lang='en'] {
+  --font-body: var(--font-en);
+}
+
+/* ---------- Dark mode — same navy/amber identity, just the "paper"/card
+   surfaces flip dark instead of the sidebar being the only dark element.
+   Toggled via the theme store setting data-theme="dark" on <html>.
+
+   Two real bugs fixed here (not just re-coloring):
+   1. --card was almost the same shade as --navy/--navy-3 (the sidebar),
+      so cards and chrome blended into one indistinct dark-blue mass —
+      --card is now a clearly lighter, less-saturated slate so panels
+      actually stand out from the sidebar.
+   2. The status "-bg" tokens (amber/danger/success/purple) were NEVER
+      overridden before — those are light pastels (cream, light pink,
+      light mint...) meant for a white background. Left as-is in dark
+      mode, every status pill/badge became a harsh bright patch glowing
+      against a dark page. They're now proper dark-mode pairs: a dark,
+      desaturated background with a light, readable accent text color —
+      same semantic color, comfortable contrast either way. ---------- */
+html[data-theme='dark'] {
+  --paper: #0a1622;
+  --card: #17232f;
+  --ink: #e8eef2;
+  --ink-soft: #8fa3b3;
+  --steel: #6f8797;
+  --steel-2: #7d94a3;
+  --border: #29394a;
+  --shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 8px 24px -12px rgba(0, 0, 0, 0.5);
+
+  --amber-bg: #3a2a10;
+  --amber-ink: #f2c572;
+
+  --danger-bg: #3a1f1a;
+  --danger-deep: #f2a08c;
+
+  --success-bg: #123324;
+  --success-deep: #6fdba3;
+
+  --purple-bg: #241c3a;
+  --purple-ink: #c9b8f5;
+}
+html[data-theme='dark'] body {
+  background: var(--paper);
+}
+
+* {
+  box-sizing: border-box;
+}
+html,
+body {
+  margin: 0;
+  padding: 0;
+}
+body {
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--font-body);
+  -webkit-font-smoothing: antialiased;
+  min-height: 100vh;
+}
+
+/* Numeric/technical values (prices, weights, dates, ids) always use this —
+   isolated LTR so digits/decimals never get reordered inside RTL text. */
+.mono {
+  font-family: var(--font-mono);
+  direction: ltr;
+  unicode-bidi: isolate;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+button {
+  font-family: inherit;
+  cursor: pointer;
+}
+::selection {
+  background: var(--cyan-line-strong);
+}
+:focus-visible {
+  outline: 2.5px solid var(--amber);
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation: none !important;
+    transition: none !important;
+  }
+}
+
+/* ---------- Status badge colors — same palette across every screen ---------- */
+.status-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11.5px;
+  font-weight: 700;
+  padding: 4px 11px;
+  border-radius: 20px;
+  white-space: nowrap;
+}
+.status-pill::before {
+  content: '';
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+}
+.status-draft {
+  background: #e2e8f0;
+  color: #475569;
+}
+.status-draft::before {
+  background: #475569;
+}
+.status-pending {
+  background: var(--amber-bg);
+  color: var(--amber-ink);
+}
+.status-pending::before {
+  background: var(--amber-ink);
+}
+.status-inprod {
+  background: #e0f2fe;
+  color: #0284c7;
+}
+.status-inprod::before {
+  background: #0284c7;
+}
+.status-completeprod {
+  background: var(--purple-bg);
+  color: var(--purple-ink);
+}
+.status-completeprod::before {
+  background: var(--purple-ink);
+}
+.status-completed {
+  background: var(--success-bg);
+  color: var(--success-deep);
+}
+.status-completed::before {
+  background: var(--success-deep);
+}
+.status-rejected {
+  background: var(--danger-bg);
+  color: var(--danger-deep);
+}
+.status-rejected::before {
+  background: var(--danger-deep);
+}
