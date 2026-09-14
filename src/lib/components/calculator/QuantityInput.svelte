@@ -57,18 +57,25 @@
   .qty-steppers {
     position: absolute;
     top: 1px;
-    right: 1px;
+    /* inset-inline-end, not right: the calculator is LTR but this component
+       is also mounted inside RTL dashboard context in a couple of places,
+       and the padding it pairs with (padding-inline-end above) is already
+       logical — the two were pointing at opposite edges in RTL. */
+    inset-inline-end: 1px;
     bottom: 1px;
     width: 15px;
     display: flex;
     flex-direction: column;
-    border-inline-start: 1px solid #e2e8f0;
+    border-inline-start: 1px solid var(--border);
   }
+  /* Was a fixed near-white (#f8fafc) chip with dark-grey glyphs, which stayed
+     light against a dark input in dark mode, then went darker still on
+     hover while the text went almost black — unreadable both ways. */
   .qty-step {
     flex: 1;
     border: none;
-    background: #f8fafc;
-    color: #64748b;
+    background: var(--paper);
+    color: var(--ink-soft);
     font-size: 7px;
     line-height: 1;
     padding: 0;
@@ -78,12 +85,12 @@
     justify-content: center;
   }
   .qty-step:hover {
-    background: #e2e8f0;
-    color: #0f172a;
+    background: var(--card-hover);
+    color: var(--ink);
   }
   .qty-step:first-child {
     border-radius: 0 4px 0 0;
-    border-bottom: 1px solid #e2e8f0;
+    border-bottom: 1px solid var(--border);
   }
   .qty-step:last-child {
     border-radius: 0 0 4px 0;

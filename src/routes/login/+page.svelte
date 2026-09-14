@@ -1,5 +1,15 @@
 <script lang="ts">
+  // ==========================================================================
+  //  SIGN-IN — the one screen everybody sees first, and the last one that was
+  //  still hardcoded: English-only labels, a fixed light background, inline
+  //  styles, and a stray Bootstrap blue button that belonged to no palette in
+  //  this app. It now goes through the dictionary and the design tokens like
+  //  every other screen, and carries its own language switch because there is
+  //  no AppShell here to provide one.
+  // ==========================================================================
   import { supabase } from '$lib/supabaseClient';
+  import { locale } from '$lib/stores/locale';
+  import { t } from '$lib/i18n/dict';
   import logoUrl from '$lib/assets/logo.svg';
 
   let email = '';
@@ -20,51 +30,188 @@
   }
 </script>
 
-<div style="min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;background:#f8fafc;font-family:var(--font-en);padding:24px;box-sizing:border-box;">
-  <div style="margin-bottom:28px;display:flex;flex-direction:column;align-items:center;">
-    <div style="background:#ffffff;border:1px solid #e2e8f0;border-radius:14px;padding:14px 22px;display:flex;align-items:center;justify-content:center;box-shadow:0 6px 16px rgba(0,0,0,0.08);">
-      <img src={logoUrl} alt="SWB Logo" style="height:60px;width:auto;object-fit:contain;display:block;" />
-    </div>
-    <div style="margin-top:16px;font-size:22px;font-weight:700;color:#0f172a;letter-spacing:-0.3px;text-align:center;">
-      SWB Manufacturing System
-    </div>
+<div class="login-page">
+  <div class="lang-switch">
+    <button class:active={$locale === 'ar'} on:click={() => locale.set('ar')}>العربية</button>
+    <button class:active={$locale === 'en'} on:click={() => locale.set('en')}>English</button>
   </div>
 
-  <div style="max-width:400px;width:100%;padding:24px;border:1px solid #e0e0e0;border-radius:8px;background:#ffffff;box-shadow:0 4px 6px -1px rgba(0,0,0,0.1);box-sizing:border-box;">
-    <h2 style="text-align:center;margin-bottom:20px;font-size:16px;color:#64748b;font-weight:600;">Sign in to your account</h2>
+  <div class="brand">
+    <div class="logo-card"><img src={logoUrl} alt="SWB Technology" /></div>
+    <div class="brand-name">SWB Manufacturing System</div>
+  </div>
+
+  <div class="card">
+    <h2>{t($locale, 'loginHeading')}</h2>
 
     {#if error}
-      <div style="color:#d9534f;padding:10px;margin-bottom:15px;background:#fdf7f7;border:1px solid #d9534f;border-radius:4px;">{error}</div>
+      <div class="error" role="alert">{error}</div>
     {/if}
 
     <form on:submit|preventDefault={handleLogin}>
-      <div style="margin-bottom:15px;">
-        <label for="email" style="display:block;margin-bottom:5px;">Email Address</label>
-        <input
-          id="email"
-          type="email"
-          bind:value={email}
-          required
-          style="width:100%;padding:10px;box-sizing:border-box;border-radius:4px;border:1px solid #ccc;"
-        />
-      </div>
-      <div style="margin-bottom:20px;">
-        <label for="password" style="display:block;margin-bottom:5px;">Password</label>
-        <input
-          id="password"
-          type="password"
-          bind:value={password}
-          required
-          style="width:100%;padding:10px;box-sizing:border-box;border-radius:4px;border:1px solid #ccc;"
-        />
-      </div>
-      <button
-        type="submit"
-        disabled={loading}
-        style="width:100%;padding:12px;background:#0d6efd;color:#fff;border:none;border-radius:4px;cursor:pointer;font-weight:bold;"
-      >
-        {loading ? 'Signing in...' : 'Sign In'}
+      <label for="email">{t($locale, 'loginEmailLabel')}</label>
+      <!-- dir="ltr" on both fields: an email address and a password are
+           always Latin, and typing them into an RTL input puts the caret and
+           any punctuation on the wrong side. -->
+      <input id="email" type="email" dir="ltr" autocomplete="username" bind:value={email} required />
+
+      <label for="password">{t($locale, 'loginPasswordLabel')}</label>
+      <input id="password" type="password" dir="ltr" autocomplete="current-password" bind:value={password} required />
+
+      <button class="submit" type="submit" disabled={loading}>
+        {loading ? t($locale, 'loginSubmitting') : t($locale, 'loginSubmit')}
       </button>
     </form>
+
+    <a class="switch-link" href="/signup">{t($locale, 'loginNoAccountLink')}</a>
   </div>
 </div>
+
+<style>
+  .login-page {
+    position: relative;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 26px;
+    background: var(--paper);
+    color: var(--ink);
+    padding: 24px;
+    box-sizing: border-box;
+  }
+
+  .lang-switch {
+    position: absolute;
+    top: 20px;
+    inset-inline-end: 20px;
+    display: flex;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    overflow: hidden;
+    background: var(--card);
+  }
+  .lang-switch button {
+    border: none;
+    background: transparent;
+    color: var(--ink-soft);
+    font-family: inherit;
+    font-size: 12.5px;
+    font-weight: 700;
+    padding: 8px 12px;
+  }
+  .lang-switch button.active {
+    background: var(--navy);
+    color: #fff;
+  }
+
+  .brand {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 16px;
+  }
+  .logo-card {
+    /* Stays white in both themes on purpose: the logo artwork is a dark mark
+       with no light variant, so it needs a light plate behind it. */
+    background: #ffffff;
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 14px 22px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: var(--shadow);
+  }
+  .logo-card img {
+    height: 60px;
+    width: auto;
+    object-fit: contain;
+    display: block;
+  }
+  .brand-name {
+    font-family: var(--font-en);
+    font-size: 22px;
+    font-weight: 700;
+    letter-spacing: -0.3px;
+    text-align: center;
+  }
+
+  .card {
+    width: 100%;
+    max-width: 400px;
+    box-sizing: border-box;
+    padding: 24px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    background: var(--card);
+    box-shadow: var(--shadow);
+  }
+  .card h2 {
+    margin: 0 0 20px;
+    text-align: center;
+    font-size: 16px;
+    font-weight: 600;
+    color: var(--ink-soft);
+  }
+  .error {
+    background: var(--danger-bg);
+    color: var(--danger-deep);
+    border: 1px solid color-mix(in srgb, var(--danger-deep) 40%, transparent);
+    border-radius: 8px;
+    padding: 10px 12px;
+    margin-bottom: 15px;
+    font-size: 12.5px;
+  }
+  label {
+    display: block;
+    margin-bottom: 6px;
+    font-size: 12.5px;
+    font-weight: 600;
+    color: var(--ink-soft);
+  }
+  input {
+    width: 100%;
+    box-sizing: border-box;
+    padding: 10px 12px;
+    margin-bottom: 16px;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    background: var(--paper);
+    color: var(--ink);
+    font-family: var(--font-en);
+    font-size: 14px;
+    outline: none;
+  }
+  input:focus {
+    border-color: var(--navy-3);
+  }
+  .submit {
+    width: 100%;
+    padding: 12px;
+    background: var(--navy);
+    color: #fff;
+    border: none;
+    border-radius: 8px;
+    font-family: inherit;
+    font-weight: 700;
+    font-size: 14px;
+    cursor: pointer;
+  }
+  .submit:hover:not(:disabled) {
+    background: var(--navy-3);
+  }
+  .submit:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
+  .switch-link {
+    display: block;
+    text-align: center;
+    margin-top: 16px;
+    font-size: 12.5px;
+    font-weight: 600;
+    color: var(--navy-3);
+  }
+</style>

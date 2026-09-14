@@ -28,9 +28,30 @@ function createAuthStore() {
   // compares against this single variable before applying a result.
   let activeUserId: string | null = null;
 
-  async function fetchUserProfile(userId: string) {
+  async function fetchUserProfile(user: { id: string; user_metadata?: Record<string, unknown> }) {
+    const userId = user.id;
     activeUserId = userId;
-    const { data, error } = await supabase.from('profiles').select('role').eq('id', userId).single();
+    let { data, error } = await supabase.from('profiles').select('role').eq('id', userId).single();
+    let insertErrorMessage: string | null = null;
+
+    // Self-registered customers have no profiles row created by staff — the
+    // signup screen stamps role:'customer' onto the auth user's metadata,
+    // and the row is created here the first time a session for this id
+    // resolves (right after signup, or later, after confirming their
+    // email and signing in). Every other role is still created by Factory
+    // via the create-user function, which writes profiles itself.
+    if (error && user.user_metadata?.role === 'customer') {
+      const meta = user.user_metadata as { full_name?: string; company_name?: string; phone?: string };
+      const { error: insertError } = await supabase
+        .from('profiles')
+        .insert({ id: userId, full_name: meta.full_name ?? '', role: 'customer', company_name: meta.company_name ?? null, phone: meta.phone ?? null });
+      if (!insertError) {
+        ({ data, error } = await supabase.from('profiles').select('role').eq('id', userId).single());
+      } else {
+        insertErrorMessage = insertError.message;
+        console.error('Could not create customer profile row:', insertError);
+      }
+    }
 
     // The person may have signed out (or into a different account) while
     // this request was in flight — a stale response must never overwrite
@@ -38,7 +59,11 @@ function createAuthStore() {
     if (activeUserId !== userId) return;
 
     if (error || !data) {
-      update((s) => ({ ...s, loading: false, profileError: 'Could not load your account role. Please contact an admin.' }));
+      // The real Postgres/RLS error (when there is one) is appended so this
+      // is actually debuggable instead of always saying the same generic
+      // line no matter the cause.
+      const detail = insertErrorMessage ?? error?.message;
+      update((s) => ({ ...s, loading: false, profileError: detail ? `Could not load your account role: ${detail}` : 'Could not load your account role. Please contact an admin.' }));
       return;
     }
     update((s) => ({ ...s, loading: false, userRole: data.role as UserRole, profileError: null }));
@@ -72,7 +97,7 @@ function createAuthStore() {
     }
 
     update((s) => ({ ...s, session: newSession, loading: true, userRole: null, profileError: null }));
-    fetchUserProfile(newSession.user.id);
+    fetchUserProfile(newSession.user);
   }
 
   return { subscribe, init };

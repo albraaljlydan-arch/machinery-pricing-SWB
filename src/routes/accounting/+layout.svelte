@@ -9,6 +9,6 @@
   ] satisfies NavGroup[];
 </script>
 
-<AppShell {navGroups} pageTitle={t($locale, 'accountingHomeTitle')} roleLabel={t($locale, 'accounting')}>
+<AppShell {navGroups} pageTitle={t($locale, 'accountingHomeTitle')}>
   <slot />
 </AppShell>

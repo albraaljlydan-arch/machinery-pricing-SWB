@@ -11,14 +11,20 @@
   import { auth } from '$lib/stores/auth';
   import { locale } from '$lib/stores/locale';
   import { theme } from '$lib/stores/theme';
-  import { t } from '$lib/i18n/dict';
+  import { t, roleLabel } from '$lib/i18n/dict';
+  import { renderNotification } from '$lib/i18n/notifications';
   import { REPORT_LOGO_BASE64 } from '$lib/calc/reportLogo';
   import type { NavItem, NavGroup } from './navTypes';
 
   export let navGroups: NavGroup[];
   export let pageTitle: string;
-  export let roleLabel: string;
   export let searchPlaceholder: string | undefined = undefined;
+
+  // Derived here rather than accepted as a prop. Every layout used to pass
+  // its OWN section's name, so the chip described the URL instead of the
+  // person signed in — "accounting@swb.com / المدير" once someone reached a
+  // section that wasn't theirs. There is no prop left to get wrong.
+  $: signedInRole = roleLabel($locale, $auth.userRole);
 
   $: currentPath = $page.url.pathname;
   $: currentFull = currentPath + decodeURIComponent($page.url.search);
@@ -87,7 +93,7 @@
       <div class="logo-card">
         <img class="brand-mark" src={REPORT_LOGO_BASE64} alt="SWB Technology" />
       </div>
-      <span class="role-tag">{roleLabel.toUpperCase()}</span>
+      <span class="role-tag">{signedInRole.toUpperCase()}</span>
     </div>
 
     <nav class="navlist">
@@ -172,7 +178,10 @@
                   {#each notifications as n (n.id)}
                     <button class="notif-item" class:unread={!n.is_read} on:click={() => openNotification(n)}>
                       <span class="notif-dot" class:show={!n.is_read}></span>
-                      <span class="notif-msg">{n.message}</span>
+                      <!-- Composed here, in the reader's language, from the
+                           structured payload in the row — see
+                           lib/i18n/notifications.ts. -->
+                      <span class="notif-msg">{renderNotification($locale, n.message)}</span>
                     </button>
                   {/each}
                 </div>
@@ -182,7 +191,7 @@
         </div>
         <div class="profile-chip">
           <div class="avatar">{($auth.session?.user?.email ?? '??').slice(0, 2).toUpperCase()}</div>
-          <div class="who"><b>{$auth.session?.user?.email ?? ''}</b><span>{roleLabel}</span></div>
+          <div class="who"><b dir="ltr">{$auth.session?.user?.email ?? ''}</b><span>{signedInRole}</span></div>
         </div>
         <button class="icon-btn" on:click={handleSignOut} aria-label={t($locale, 'signOut')} title={t($locale, 'signOut')}>
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" /><path d="M16 17l5-5-5-5M21 12H9" /></svg>
@@ -285,15 +294,18 @@
     margin-inline-start: auto;
     background: var(--amber);
     color: #3b2504;
-    font-family: var(--font-mono);
+    font-family: var(--font-num);
+    font-variant-numeric: tabular-nums;
     font-weight: 700;
     font-size: 10.5px;
     padding: 1px 7px;
     border-radius: 20px;
   }
+  /* Carries an Arabic word ("جديد" / "قريبًا"), so no numeric face here. */
   .nav-item .badge.new {
     background: var(--purple);
     color: #fff;
+    font-family: var(--font-body);
     font-size: 9.5px;
   }
   .sidebar-foot {
@@ -302,7 +314,9 @@
     font-size: 11px;
     color: #6c93a8;
     border-top: 1px solid rgba(255, 255, 255, 0.1);
-    font-family: var(--font-mono);
+    font-family: var(--font-num);
+    direction: ltr;
+    text-align: start;
     line-height: 1.7;
     word-break: break-all;
   }
@@ -419,10 +433,13 @@
   .dot-badge {
     position: absolute;
     top: -4px;
-    left: -4px;
+    /* was left:-4px — the count sat on the same physical side in both
+       directions, colliding with the theme toggle next to it in RTL */
+    inset-inline-start: -4px;
     background: var(--danger);
     color: #fff;
-    font-family: var(--font-mono);
+    font-family: var(--font-num);
+    font-variant-numeric: tabular-nums;
     font-size: 9.5px;
     font-weight: 700;
     min-width: 16px;
@@ -440,6 +457,8 @@
     position: fixed;
     inset: 0;
     z-index: 40;
+    background: color-mix(in srgb, var(--navy) 8%, transparent);
+    backdrop-filter: blur(1px);
   }
   .notif-panel {
     position: absolute;
@@ -448,10 +467,11 @@
     width: 320px;
     max-height: 420px;
     background: var(--card);
-    border: 1px solid var(--border);
-    border-radius: 12px;
-    box-shadow: var(--shadow);
+    border: 1px solid color-mix(in srgb, var(--navy) 32%, var(--border));
+    border-radius: 8px;
+    box-shadow: 0 20px 50px rgba(7, 26, 40, 0.24), 0 4px 12px rgba(7, 26, 40, 0.14);
     z-index: 41;
+    isolation: isolate;
     display: flex;
     flex-direction: column;
     overflow: hidden;
@@ -465,6 +485,7 @@
     font-size: 13px;
     font-weight: 700;
     color: var(--ink);
+    background: var(--paper);
   }
   .notif-markall {
     background: transparent;
@@ -489,7 +510,7 @@
     gap: 8px;
     width: 100%;
     text-align: start;
-    background: transparent;
+    background: var(--card);
     border: none;
     border-bottom: 1px solid var(--border);
     padding: 10px 14px;
@@ -540,7 +561,7 @@
     justify-content: center;
     font-weight: 700;
     font-size: 12.5px;
-    font-family: var(--font-mono);
+    font-family: var(--font-num);
     flex-shrink: 0;
   }
   .profile-chip .who {

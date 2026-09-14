@@ -6,12 +6,13 @@
   import { t } from '$lib/i18n/dict';
   import { toast } from '$lib/stores/toast';
   import { notifyUser } from '$lib/calc/notify';
+  import { encodeNotification } from '$lib/i18n/notifications';
+  import { operationLabel } from '$lib/calc/operationTypes';
 
   interface Entry {
     id: string;
     project_name_snapshot: string;
     operation_type: string;
-    worker_name: string;
     work_date: string;
     completion_percent: number;
     notes: string | null;
@@ -40,13 +41,7 @@
       entries = entries.filter((e) => e.id !== entry.id);
       toast.notify(decision === 'approved' ? t($locale, 'entryApprovedSuccess') : t($locale, 'entryRejectedSuccess'), 'success');
       if (entry.logged_by) {
-        notifyUser(
-          entry.logged_by,
-          decision === 'approved'
-            ? `Your progress entry for "${entry.project_name_snapshot}" was approved.`
-            : `Your progress entry for "${entry.project_name_snapshot}" was rejected.`,
-          '/followup'
-        );
+        notifyUser(entry.logged_by, encodeNotification(decision === 'approved' ? 'progressApproved' : 'progressRejected', { name: entry.project_name_snapshot }), '/followup');
       }
     }
   }
@@ -63,25 +58,26 @@
         <tr>
           <th>{t($locale, 'colProject')}</th>
           <th>{t($locale, 'colOperationType')}</th>
-          <th>{t($locale, 'colWorker')}</th>
-          <th>{t($locale, 'colWorkDate')}</th>
-          <th>{t($locale, 'colCompletion')}</th>
+          <th class="col-center">{t($locale, 'colWorkDate')}</th>
+          <th class="col-center">{t($locale, 'colCompletion')}</th>
           <th>{t($locale, 'colNotes')}</th>
-          <th></th>
+          <!-- Last cell, shrink-to-fit: see .col-actions in tokens.css -->
+          <th class="col-actions"></th>
         </tr>
       </thead>
       <tbody>
         {#each entries as e (e.id)}
           <tr>
             <td class="name">{e.project_name_snapshot}</td>
-            <td>{e.operation_type}</td>
-            <td>{e.worker_name}</td>
+            <td>{operationLabel($locale, e.operation_type)}</td>
             <td class="mono muted">{formatDate(e.work_date)}</td>
             <td class="mono">{e.completion_percent}%</td>
             <td class="muted">{e.notes || '—'}</td>
-            <td class="actions">
-              <button class="btn-approve" disabled={acting === e.id} on:click={() => act(e, 'approved')}>{t($locale, 'approveAction')}</button>
-              <button class="btn-reject" disabled={acting === e.id} on:click={() => act(e, 'rejected')}>{t($locale, 'rejectAction')}</button>
+            <td class="col-actions">
+              <div>
+                <button class="btn-approve" disabled={acting === e.id} on:click={() => act(e, 'approved')}>{t($locale, 'approveAction')}</button>
+                <button class="btn-reject" disabled={acting === e.id} on:click={() => act(e, 'rejected')}>{t($locale, 'rejectAction')}</button>
+              </div>
             </td>
           </tr>
         {/each}
@@ -111,7 +107,7 @@
     font-size: 13px;
   }
   th {
-    text-align: start;
+    text-align: center;
     font-size: 10.5px;
     color: var(--steel-2);
     text-transform: uppercase;
@@ -121,7 +117,7 @@
     font-weight: 600;
   }
   td {
-    text-align: start;
+    text-align: center;
     padding: 10px 12px;
     border-bottom: 1px solid var(--border);
   }
@@ -131,16 +127,8 @@
   .name {
     font-weight: 700;
   }
-  .mono {
-    font-family: var(--font-mono);
-  }
   .muted {
     color: var(--ink-soft);
-  }
-  .actions {
-    white-space: nowrap;
-    display: flex;
-    gap: 6px;
   }
   .btn-approve {
     background: var(--success, #3f9463);

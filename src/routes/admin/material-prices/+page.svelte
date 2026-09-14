@@ -81,7 +81,7 @@
     font-size: 13px;
   }
   th {
-    text-align: start;
+    text-align: center;
     font-size: 10.5px;
     color: var(--steel-2);
     text-transform: uppercase;
@@ -91,7 +91,7 @@
     font-weight: 600;
   }
   td {
-    text-align: start;
+    text-align: center;
     padding: 10px 12px;
     border-bottom: 1px solid var(--border);
   }
@@ -100,8 +100,5 @@
   }
   .name {
     font-weight: 700;
-  }
-  .mono {
-    font-family: var(--font-mono);
   }
 </style>

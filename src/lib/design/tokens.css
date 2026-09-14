@@ -3,9 +3,27 @@
    Matches the Admin dashboard mockup approved by the client: dark navy
    sidebar with a subtle cyan grid, amber accent, "perforated-corner" plate
    cards for KPIs. Noto Sans Arabic for Arabic UI text, Inter for English UI
-   text (each applied automatically via html[lang]), Inconsolata for every
-   numeric/technical value (prices, weights, dates, counts) — chosen
-   specifically because its zero has no dot through the middle.
+   text (each applied automatically via html[lang]).
+
+   ---- Numbers: ONE look, everywhere ----
+   Numeric values used to be set in Inconsolata (a monospace face). That
+   caused two real bugs, both of which this file now fixes at the source:
+
+   1. Inconsolata has NO ARABIC GLYPHS. Any label carrying Arabic text was
+      also wearing var(--font-mono) — table column headers, count pills,
+      "eyebrow" section labels, KPI badges — so the browser silently fell
+      back to some arbitrary system Arabic font for exactly those strings.
+      That is why parts of the Arabic UI appeared in a different typeface
+      from the rest of it.
+   2. It never matched the calculator, whose numbers are plain UI sans —
+      so the same figure looked like two different things depending on
+      which screen you were on.
+
+   Numbers are now the UI sans with TABULAR figures (--font-num), which
+   keeps the column alignment monospace was there to provide while looking
+   identical to the calculator. --font-num is pinned to the LATIN face in
+   both languages on purpose: digits must not change shape when the UI is
+   toggled between Arabic and English.
    ============================================================================ */
 
 :root {
@@ -18,6 +36,11 @@
 
   --paper: #f2f5f1;
   --card: #ffffff;
+  /* Hover/raised surface sitting ON a --card panel. In light mode that
+     means going slightly darker than the card; in dark mode it must go
+     LIGHTER. Every row/button hover uses this instead of --paper, which
+     only reads as "raised" in light mode and looks like a hole in dark. */
+  --card-hover: #f2f5f1;
   --ink: #0f222e;
   --ink-soft: #4c616c;
   --steel: #80929c;
@@ -40,13 +63,33 @@
   --purple-bg: #e9e3fa;
   --purple-ink: #3f2e82;
 
+  /* Informational / warning callout surfaces. These were hardcoded as
+     #eff6ff / #fffbeb in six different route files, which made every
+     notice box a bright white-blue patch in dark mode. */
+  --info-bg: #eff6ff;
+  --info-ink: #1e40af;
+  --info-border: #bfdbfe;
+  --warn-bg: #fffbeb;
+  --warn-ink: #92400e;
+  --warn-border: #fcd34d;
+
   --radius: 14px;
   --shadow: 0 1px 2px rgba(15, 34, 46, 0.04), 0 8px 24px -12px rgba(15, 34, 46, 0.12);
 
   --font-ar: 'Noto Sans Arabic', sans-serif;
   --font-en: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-  --font-mono: 'Inconsolata', monospace;
   --font-body: var(--font-ar);
+
+  /* Digits. Pinned to the Latin face in BOTH languages so a figure never
+     changes shape when the language is toggled. Paired with
+     font-variant-numeric: tabular-nums (see .mono below) for column
+     alignment. */
+  --font-num: var(--font-en);
+  /* Back-compat alias for any remaining var(--font-mono) call site. The
+     Arabic face is appended as a real fallback so that if such a call site
+     does carry Arabic text, the glyphs still come from Noto Sans Arabic
+     rather than an arbitrary system font. */
+  --font-mono: var(--font-num), var(--font-ar);
 }
 
 /* The active UI language decides the body font — set once here rather
@@ -80,6 +123,10 @@ html[lang='en'] {
 html[data-theme='dark'] {
   --paper: #0a1622;
   --card: #17232f;
+  /* Lighter than --card, not darker: a hover must always read as "lifted".
+     Using --paper here (as every row hover used to) made the hovered row
+     look like a hole punched through the panel. */
+  --card-hover: #22323f;
   --ink: #e8eef2;
   --ink-soft: #8fa3b3;
   --steel: #6f8797;
@@ -98,6 +145,13 @@ html[data-theme='dark'] {
 
   --purple-bg: #241c3a;
   --purple-ink: #c9b8f5;
+
+  --info-bg: #10243d;
+  --info-ink: #9dc2f5;
+  --info-border: #274b73;
+  --warn-bg: #33270c;
+  --warn-ink: #f2ce8a;
+  --warn-border: #6b5320;
 }
 html[data-theme='dark'] body {
   background: var(--paper);
@@ -117,14 +171,104 @@ body {
   font-family: var(--font-body);
   -webkit-font-smoothing: antialiased;
   min-height: 100vh;
+
+  /* ---- Cross-language line-box parity ----
+     Noto Sans Arabic and Inter ship very different default line spacing
+     (Arabic faces carry tall ascenders/descenders for diacritics), so with
+     line-height unset every row, card and paragraph physically changed
+     height when the language was toggled — the "lines got taller/shorter"
+     effect. Pinning line-height to a unitless ratio here makes the line box
+     depend only on font-size, which is identical in both languages, and it
+     inherits to every descendant that doesn't override it.
+
+     font-size-adjust then normalises the two faces' apparent glyph size at
+     the same font-size (0.545 is Inter's own x-height ratio, so Inter is
+     left exactly as designed and Noto Sans Arabic is matched to it).
+     Browsers without support simply ignore it. */
+  line-height: 1.6;
+  font-size-adjust: 0.545;
 }
 
-/* Numeric/technical values (prices, weights, dates, ids) always use this —
-   isolated LTR so digits/decimals never get reordered inside RTL text. */
+/* Numeric values (prices, weights, dates, counts, ids).
+   - --font-num keeps digits in the Latin face in both languages, with
+     tabular figures so table columns still line up the way the old
+     monospace font made them.
+   - isolated LTR so "$1,480" is never reordered by the bidi algorithm
+     inside an RTL page.
+   IMPORTANT: only put this on an element whose text is PURELY numeric.
+   On a mixed string like "5 مشروع" the LTR paragraph direction reverses
+   the reading order; wrap just the number instead. */
 .mono {
-  font-family: var(--font-mono);
+  font-family: var(--font-num);
+  font-variant-numeric: tabular-nums;
   direction: ltr;
   unicode-bidi: isolate;
+}
+
+/* ---------------------------------------------------------------------------
+   THE ALIGNMENT BUG THIS FIXES — every table on the site had it.
+
+   `text-align: start` is NOT resolved when it is computed; it is resolved per
+   element, against THAT element's own `direction`. Tables were written as:
+
+       th { text-align: start }     with direction rtl, start = RIGHT
+       td { text-align: start }     with direction rtl, start = RIGHT
+
+   which is correct — until .mono lands on a numeric cell and sets
+   `direction: ltr` on it (needed so "$1,480" is not reordered to "1,480$").
+   From that moment the SAME keyword means the opposite side:
+
+       td.mono -> direction: ltr -> start = LEFT
+
+   So every date, percentage and price sat left-aligned underneath a
+   right-aligned header, and nothing lined up. It looked like a layout
+   problem in each individual table, which is why it appeared everywhere.
+
+   The two concerns have to be separated: the VALUE needs an LTR bidi run,
+   the CELL needs to stay aligned with the table. So the alignment is
+   re-asserted physically, keyed off the page direction rather than the
+   cell's, which is immune to whatever `direction` the cell carries.
+
+   Scoped to td/th on purpose: .mono is also used on inline spans and on
+   things like the progress-bar value, which set their own alignment and must
+   keep it.
+   --------------------------------------------------------------------------- */
+/* CENTRE, not right/left — and that is the point. `center` is the one
+   alignment keyword that does not depend on `direction` at all, so a numeric
+   cell can carry `direction: ltr` for its digits and still sit exactly where
+   its header sits. Patching the two sides to agree would have left the same
+   trap for the next numeric column anyone adds; taking direction out of the
+   decision removes it. It also matches the calculator, which has always
+   centred every cell. */
+td.mono {
+  text-align: center;
+}
+
+/* Put this on the <th> of any centred column — number, date, status — so the
+   header sits over its own cells. Pair it with .mono on the <td>. */
+.col-center,
+th.col-center,
+td.col-center {
+  text-align: center;
+}
+
+/* ---------------------------------------------------------------------------
+   Action column (Approve/Reject, Review, Delete…). Always the LAST cell, and
+   it takes only the width its buttons need instead of an equal share — an
+   equal share is what squeezed the real content columns and made the
+   misalignment above even harder to read. `width: 1%` with nowrap is the
+   standard shrink-to-fit trick for a table cell.
+   --------------------------------------------------------------------------- */
+.col-actions {
+  width: 1%;
+  white-space: nowrap;
+  text-align: center;
+}
+td.col-actions > * {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
 }
 
 a {
@@ -150,7 +294,25 @@ button {
   }
 }
 
-/* ---------- Status badge colors — same palette across every screen ---------- */
+/* ---------- Status badge colors — same palette across every screen ----------
+   Draft and In Production are the only two that don't map onto an existing
+   amber/danger/success/purple token pair, so they carry their own. They used
+   to be raw light pastels with no dark-mode counterpart, which left two of
+   the six pills glowing as bright patches on every dark dashboard while the
+   other four adapted correctly. ------------------------------------------- */
+:root {
+  --draft-bg: #e2e8f0;
+  --draft-ink: #475569;
+  --inprod-bg: #e0f2fe;
+  --inprod-ink: #0284c7;
+}
+html[data-theme='dark'] {
+  --draft-bg: #263442;
+  --draft-ink: #a9bcca;
+  --inprod-bg: #0d2c40;
+  --inprod-ink: #7cc6ee;
+}
+
 .status-pill {
   display: inline-flex;
   align-items: center;
@@ -168,11 +330,11 @@ button {
   border-radius: 50%;
 }
 .status-draft {
-  background: #e2e8f0;
-  color: #475569;
+  background: var(--draft-bg);
+  color: var(--draft-ink);
 }
 .status-draft::before {
-  background: #475569;
+  background: var(--draft-ink);
 }
 .status-pending {
   background: var(--amber-bg);
@@ -182,11 +344,11 @@ button {
   background: var(--amber-ink);
 }
 .status-inprod {
-  background: #e0f2fe;
-  color: #0284c7;
+  background: var(--inprod-bg);
+  color: var(--inprod-ink);
 }
 .status-inprod::before {
-  background: #0284c7;
+  background: var(--inprod-ink);
 }
 .status-completeprod {
   background: var(--purple-bg);

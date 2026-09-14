@@ -21,6 +21,6 @@
   $: pageTitle = allNavItems.find((item) => item.href === currentPath)?.label ?? t($locale, 'overview');
 </script>
 
-<AppShell {navGroups} {pageTitle} roleLabel={t($locale, 'developer')}>
+<AppShell {navGroups} {pageTitle}>
   <slot />
 </AppShell>

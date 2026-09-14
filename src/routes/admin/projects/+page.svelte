@@ -6,6 +6,7 @@
   import { supabase } from '$lib/supabaseClient';
   import { locale } from '$lib/stores/locale';
   import { t, statusLabel } from '$lib/i18n/dict';
+  import { formatCount as fmt } from '$lib/utils';
   import StatusBadge from '$lib/components/StatusBadge.svelte';
 
   let projects: any[] = [];
@@ -21,9 +22,6 @@
 
   $: filtered = statusFilter ? projects.filter((p) => p.status === statusFilter) : projects;
 
-  function fmt(n: number) {
-    return Number(n || 0).toLocaleString('en-US', { maximumFractionDigits: 0 });
-  }
 </script>
 
 <section>
@@ -88,7 +86,7 @@
     font-size: 13px;
   }
   th {
-    text-align: left;
+    text-align: center;
     font-size: 10.5px;
     color: var(--steel-2);
     letter-spacing: 0.4px;
@@ -99,7 +97,7 @@
     font-weight: 600;
   }
   td {
-    text-align: start;
+    text-align: center;
     padding: 12px 16px;
     border-bottom: 1px solid var(--border);
   }
@@ -110,7 +108,6 @@
     font-weight: 700;
   }
   .mono {
-    font-family: var(--font-mono);
     font-weight: 700;
   }
   .muted {
@@ -121,6 +118,6 @@
     cursor: pointer;
   }
   .clickable-row:hover td {
-    background: var(--paper);
+    background: var(--card-hover);
   }
 </style>

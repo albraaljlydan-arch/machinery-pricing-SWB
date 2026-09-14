@@ -4,235 +4,691 @@
   import { locale } from '$lib/stores/locale';
   import { t } from '$lib/i18n/dict';
   import { formatDate } from '$lib/calc/formatDate';
+  import { operationLabel } from '$lib/calc/operationTypes';
 
   interface OperationRow {
     id: string;
+    project_id: string;
     project_name_snapshot: string;
     operation_type: string;
     work_date: string;
     completion_percent: number;
-    notes: string | null;
+    logged_by: string;
+    created_at: string;
+  }
+
+  interface PurchaseRow {
+    id: string;
+    project_id: string;
+    project_name_snapshot: string;
+    work_date: string;
+    requested_by: string;
+    pieces_today: number;
+    daily_percent: number;
+    cumulative_percent: number;
+    created_at: string;
+  }
+
+  interface ProgressRow {
+    id: string;
+    source: 'followup' | 'procurement';
+    projectId: string;
+    machine: string;
+    engineer: string;
+    workDate: string;
+    detail: string;
+    dailyValue: number;
+    cumulativeValue: number;
+    pieces: number | null;
+    createdAt: string;
   }
 
   let operations: OperationRow[] = [];
+  let purchases: PurchaseRow[] = [];
+  let names: Record<string, string> = {};
   let loading = true;
-  let search = '';
+  let loadError = '';
+  const todayStr = new Date().toISOString().slice(0, 10);
+  type Period = 'day' | 'week' | 'month';
+  let period: Period = 'day';
+  let selectedDate = todayStr;
+  let selectedMachine = '';
+
+  function dateKey(date: Date): string {
+    return new Date(date.getTime() - date.getTimezoneOffset() * 60000).toISOString().slice(0, 10);
+  }
+
+  function shiftDays(date: Date, amount: number): Date {
+    const next = new Date(date);
+    next.setDate(next.getDate() + amount);
+    return next;
+  }
+
+  // The work week here runs Saturday–Friday, not the ISO Sunday/Monday
+  // start — so "this week" always snaps to that fixed Sat-start grid
+  // instead of floating with whatever weekday "today" happens to be.
+  function startOfWeekSat(date: Date): Date {
+    return shiftDays(date, -((date.getDay() + 1) % 7));
+  }
+
+  const today = new Date();
+  const dayOptions = Array.from({ length: 60 }, (_, index) => {
+    const date = shiftDays(today, -index);
+    return { value: dateKey(date), date };
+  });
+  const currentWeekStart = startOfWeekSat(today);
+  const weekOptions = Array.from({ length: 12 }, (_, index) => {
+    const start = shiftDays(currentWeekStart, -index * 7);
+    const end = shiftDays(start, 6);
+    return { value: dateKey(end), start: dateKey(start), end: dateKey(end), startDate: start, endDate: end };
+  });
+  const monthOptions = Array.from({ length: 12 }, (_, index) => {
+    const date = new Date(today.getFullYear(), today.getMonth() - index, 1);
+    const end = new Date(date.getFullYear(), date.getMonth() + 1, 0);
+    return { value: dateKey(date), start: dateKey(date), end: dateKey(end), date };
+  });
+
+  function periodRange(): { start: string; end: string } {
+    if (period === 'day') return { start: selectedDate, end: selectedDate };
+    const options = period === 'week' ? weekOptions : monthOptions;
+    return options.find((option) => option.value === selectedDate) || options[0];
+  }
+
+  function selectPeriod(next: Period) {
+    period = next;
+    selectedDate = next === 'day' ? todayStr : next === 'week' ? weekOptions[0].value : monthOptions[0].value;
+  }
 
   onMount(async () => {
-    // Admin only ever sees APPROVED entries, and never the worker's
-    // identity — Factory approves the raw entries, Follow-up Engineer's
-    // roster of workers stays entirely between those two roles.
-    const { data, error } = await supabase
-      .from('factory_operations')
-      .select('id, project_name_snapshot, operation_type, work_date, completion_percent, notes')
-      .eq('approval_status', 'approved')
-      .order('work_date', { ascending: false });
-    if (!error) operations = data || [];
+    const [operationsRes, purchasesRes] = await Promise.all([
+      supabase
+        .from('factory_operations')
+        .select('id, project_id, project_name_snapshot, operation_type, work_date, completion_percent, logged_by, created_at')
+        .eq('approval_status', 'approved')
+        .order('work_date', { ascending: false }),
+      supabase
+        .from('purchase_requests')
+        .select('id, project_id, project_name_snapshot, work_date, requested_by, pieces_today, daily_percent, cumulative_percent, created_at')
+        .eq('approval_status', 'approved')
+        .order('work_date', { ascending: false }),
+    ]);
+
+    if (operationsRes.error || purchasesRes.error) {
+      loadError = operationsRes.error?.message || purchasesRes.error?.message || '';
+    }
+    operations = operationsRes.data || [];
+    purchases = purchasesRes.data || [];
+
+    const ids = Array.from(new Set([...operations.map((row) => row.logged_by), ...purchases.map((row) => row.requested_by)].filter(Boolean)));
+    if (ids.length > 0) {
+      const { data: profiles } = await supabase.from('profiles').select('id, full_name').in('id', ids);
+      names = Object.fromEntries((profiles || []).map((profile) => [profile.id, profile.full_name]));
+    }
     loading = false;
   });
 
-  $: filtered = search.trim() ? operations.filter((o) => o.project_name_snapshot.toLowerCase().includes(search.trim().toLowerCase())) : operations;
+  function followupCumulative(projectId: string, throughDate?: string): number {
+    const total = operations
+      .filter((row) => row.project_id === projectId && (!throughDate || row.work_date <= throughDate))
+      .reduce((sum, row) => sum + Number(row.completion_percent || 0), 0);
+    return Math.min(100, Math.round(total));
+  }
 
-  $: byMachine = Object.entries(
-    operations.reduce(
-      (acc, o) => {
-        acc[o.operation_type] = acc[o.operation_type] || { count: 0, sum: 0 };
-        acc[o.operation_type].count += 1;
-        acc[o.operation_type].sum += Number(o.completion_percent || 0);
-        return acc;
-      },
-      {} as Record<string, { count: number; sum: number }>
+  function latestPurchasePercent(projectId: string, throughDate?: string): number {
+    const latest = purchases
+      .filter((row) => row.project_id === projectId && (!throughDate || row.work_date <= throughDate))
+      .sort((a, b) => b.work_date.localeCompare(a.work_date) || b.created_at.localeCompare(a.created_at))[0];
+    return latest ? Math.min(100, Math.round(Number(latest.cumulative_percent || 0))) : 0;
+  }
+
+  $: machineOptions = Array.from(
+    new Map(
+      [...operations, ...purchases].map((row) => [row.project_id, row.project_name_snapshot] as const)
     )
   )
-    .map(([type, v]) => ({ type, count: v.count, avg: Math.round(v.sum / v.count) }))
-    .sort((a, b) => b.count - a.count);
+    .map(([id, name]) => ({ id, name }))
+    .sort((a, b) => a.name.localeCompare(b.name));
+
+  $: progressRows = [
+    ...operations.map(
+      (row): ProgressRow => ({
+        id: `followup-${row.id}`,
+        source: 'followup',
+        projectId: row.project_id,
+        machine: row.project_name_snapshot,
+        engineer: names[row.logged_by] || '—',
+        workDate: row.work_date,
+        detail: operationLabel($locale, row.operation_type),
+        dailyValue: Math.round(Number(row.completion_percent || 0)),
+        cumulativeValue: followupCumulative(row.project_id, row.work_date),
+        pieces: null,
+        createdAt: row.created_at,
+      })
+    ),
+    ...purchases.map(
+      (row): ProgressRow => ({
+        id: `procurement-${row.id}`,
+        source: 'procurement',
+        projectId: row.project_id,
+        machine: row.project_name_snapshot,
+        engineer: names[row.requested_by] || '—',
+        workDate: row.work_date,
+        detail: t($locale, 'purchasedMaterials'),
+        dailyValue: Math.round(Number(row.daily_percent || 0)),
+        cumulativeValue: Math.min(100, Math.round(Number(row.cumulative_percent || 0))),
+        pieces: Number(row.pieces_today || 0),
+        createdAt: row.created_at,
+      })
+    ),
+  ].sort((a, b) => b.workDate.localeCompare(a.workDate) || b.createdAt.localeCompare(a.createdAt));
+
+  $: range = periodRange();
+  $: filteredRows = progressRows.filter(
+    (row) => row.workDate >= range.start && row.workDate <= range.end && (!selectedMachine || row.projectId === selectedMachine)
+  );
+
+  $: machineSummaries = machineOptions
+    .filter((machine) => !selectedMachine || machine.id === selectedMachine)
+    .map((machine) => ({
+      ...machine,
+      followup: followupCumulative(machine.id, range.end),
+      procurement: latestPurchasePercent(machine.id, range.end),
+    }));
+
+  function fairScore(rows: ProgressRow[]): number {
+    const byMachine = new Map<string, number>();
+    for (const row of rows) byMachine.set(row.projectId, Math.min(100, (byMachine.get(row.projectId) || 0) + row.dailyValue));
+    const values = [...byMachine.values()];
+    return values.length ? Math.round(values.reduce((sum, value) => sum + value, 0) / values.length) : 0;
+  }
+
+  function employeeResults(source: ProgressRow['source']) {
+    const grouped = new Map<string, ProgressRow[]>();
+    for (const row of filteredRows.filter((item) => item.source === source)) {
+      const key = row.engineer || '—';
+      grouped.set(key, [...(grouped.get(key) || []), row]);
+    }
+    return [...grouped].map(([engineer, rows]) => ({
+      engineer,
+      score: fairScore(rows),
+      machines: new Set(rows.map((row) => row.projectId)).size,
+      reports: rows.length,
+      pieces: rows.reduce((sum, row) => sum + Number(row.pieces || 0), 0),
+    })).sort((a, b) => b.score - a.score);
+  }
+
+  $: followupRows = filteredRows.filter((row) => row.source === 'followup');
+  $: procurementRows = filteredRows.filter((row) => row.source === 'procurement');
+  $: followupScore = fairScore(followupRows);
+  $: procurementScore = fairScore(procurementRows);
+  $: followupEmployees = employeeResults('followup');
+  $: procurementEmployees = employeeResults('procurement');
 </script>
 
-<section>
-  <div class="panel">
-    <div class="panel-head">
-      <h3>{t($locale, 'factoryProgressByMachine')}</h3>
-    </div>
-    <p class="desc">{t($locale, 'factoryProgressDesc')}</p>
+<div class="period-tabs" aria-label={$locale === 'ar' ? 'الفترة الزمنية' : 'Time period'}>
+  <button class:active={period === 'day'} type="button" on:click={() => selectPeriod('day')}>{$locale === 'ar' ? 'يومي' : 'Daily'}</button>
+  <button class:active={period === 'week'} type="button" on:click={() => selectPeriod('week')}>{$locale === 'ar' ? 'أسبوعي' : 'Weekly'}</button>
+  <button class:active={period === 'month'} type="button" on:click={() => selectPeriod('month')}>{$locale === 'ar' ? 'شهري' : 'Monthly'}</button>
+</div>
 
-    {#if loading}
-      <div class="empty">{t($locale, 'loading')}</div>
-    {:else if byMachine.length === 0}
-      <div class="empty">{t($locale, 'noMatchingOperations')}</div>
-    {:else}
-      <div class="bars">
-        {#each byMachine as m (m.type)}
-          <div class="bar-row">
-            <span class="bar-label">{m.type}</span>
-            <div class="bar-track"><div class="bar-fill" style="width:{m.avg}%"></div></div>
-            <span class="bar-value mono">{m.avg}%</span>
-            <span class="bar-count mono">({m.count})</span>
-          </div>
+<div class="filters">
+  <label>
+    <span>{$locale === 'ar' ? (period === 'day' ? 'اختر اليوم' : period === 'week' ? 'اختر الأسبوع' : 'اختر الشهر') : `Select ${period}`}</span>
+    <select bind:value={selectedDate}>
+      {#if period === 'day'}
+        {#each dayOptions as option (option.value)}
+          <option value={option.value}>{option.date.toLocaleDateString($locale === 'ar' ? 'ar-SY' : 'en-US', { weekday: 'long', day: 'numeric', month: 'long' })}</option>
         {/each}
+      {:else if period === 'week'}
+        {#each weekOptions as option (option.value)}
+          <option value={option.value}>{formatDate(option.start)} - {formatDate(option.end)}</option>
+        {/each}
+      {:else}
+        {#each monthOptions as option (option.value)}
+          <option value={option.value}>{option.date.toLocaleDateString($locale === 'ar' ? 'ar-SY' : 'en-US', { month: 'long', year: 'numeric' })}</option>
+        {/each}
+      {/if}
+    </select>
+  </label>
+
+  <label>
+    <span>{t($locale, 'filterByMachine')}</span>
+    <select bind:value={selectedMachine}>
+      <option value="">{t($locale, 'allMachines')}</option>
+      {#each machineOptions as machine (machine.id)}
+        <option value={machine.id}>{machine.name}</option>
+      {/each}
+    </select>
+  </label>
+</div>
+
+{#if loadError}
+  <div class="error-box">{t($locale, 'loadErrorPrefix')}{loadError}</div>
+{/if}
+
+<div class="daily-stats">
+  <div class="stat">
+    <span class="stat-label">{$locale === 'ar' ? 'متوسط تقدم المتابعة لكل ماكينة' : 'Follow-up progress per machine'}</span>
+    <strong class="mono">{loading ? '—' : `${followupScore}%`}</strong>
+    <small>{new Set(followupRows.map((row) => row.projectId)).size} {$locale === 'ar' ? 'ماكينات' : 'machines'} · {followupRows.length} {t($locale, 'approvedEntries')}</small>
+  </div>
+  <div class="stat procurement-stat">
+    <span class="stat-label">{$locale === 'ar' ? 'متوسط تقدم المشتريات لكل ماكينة' : 'Procurement progress per machine'}</span>
+    <strong class="mono">{loading ? '—' : `${procurementScore}%`}</strong>
+    <small>{new Set(procurementRows.map((row) => row.projectId)).size} {$locale === 'ar' ? 'ماكينات' : 'machines'} · {procurementRows.length} {t($locale, 'approvedEntries')}</small>
+  </div>
+</div>
+
+<section class="panel employee-panel">
+  <div class="panel-head">
+    <div>
+      <h3>{$locale === 'ar' ? 'إنجاز الموظفين' : 'Employee progress'}</h3>
+      <p>{$locale === 'ar' ? 'متوسط نقاط التقدم المعتمدة لكل ماكينة، مع وزن متساوٍ لكل ماكينة' : 'Average approved progress points per machine, with equal weight per machine'}</p>
+    </div>
+  </div>
+  <div class="employee-columns">
+    {#each [{ source: 'followup', title: t($locale, 'followup'), rows: followupEmployees }, { source: 'procurement', title: t($locale, 'procurement'), rows: procurementEmployees }] as group}
+      <div class="employee-group">
+        <h4>{group.title}</h4>
+        {#if group.rows.length === 0}
+          <div class="mini-empty">{$locale === 'ar' ? 'لا يوجد إنجاز معتمد ضمن الفترة' : 'No approved progress in this period'}</div>
+        {:else}
+          {#each group.rows as employee (employee.engineer)}
+            <div class="employee-row">
+              <div><b>{employee.engineer}</b><small>{employee.machines} {$locale === 'ar' ? 'ماكينات' : 'machines'} · {employee.reports} {$locale === 'ar' ? 'تقارير' : 'reports'}</small></div>
+              <strong class="mono">{employee.score}%</strong>
+            </div>
+          {/each}
+        {/if}
       </div>
-    {/if}
+    {/each}
+  </div>
+</section>
+<section class="panel">
+  <div class="panel-head">
+    <div>
+      <h3>{t($locale, 'machineProgressToDate')}</h3>
+      <p>{t($locale, 'machineProgressToDateDesc')}</p>
+    </div>
+    <span class="count-tag mono">{loading ? '—' : machineSummaries.length}</span>
   </div>
 
-  <div class="panel">
-    <div class="panel-head">
-      <h3>{t($locale, 'dailyProgressTitle')}</h3>
-      <span class="count-tag mono">{loading ? '—' : filtered.length}</span>
+  {#if loading}
+    <div class="empty">{t($locale, 'loading')}</div>
+  {:else if machineSummaries.length === 0}
+    <div class="empty">{t($locale, 'noMatchingOperations')}</div>
+  {:else}
+    <div class="machine-grid">
+      {#each machineSummaries as machine (machine.id)}
+        <article class="machine-card">
+          <h4>{machine.name}</h4>
+          <div class="progress-line">
+            <div class="progress-label">
+              <span>{t($locale, 'followup')}</span>
+              <b class="mono">{machine.followup}%</b>
+            </div>
+            <div class="track"><div class="fill followup-fill" style="width:{machine.followup}%"></div></div>
+          </div>
+          <div class="progress-line">
+            <div class="progress-label">
+              <span>{t($locale, 'procurement')}</span>
+              <b class="mono">{machine.procurement}%</b>
+            </div>
+            <div class="track"><div class="fill procurement-fill" style="width:{machine.procurement}%"></div></div>
+          </div>
+        </article>
+      {/each}
     </div>
-    <input class="search" type="text" bind:value={search} placeholder={t($locale, 'searchByProject')} dir="auto" />
+  {/if}
+</section>
 
-    {#if loading}
-      <div class="empty">{t($locale, 'loading')}</div>
-    {:else if filtered.length === 0}
-      <div class="empty">{t($locale, 'noMatchingOperations')}</div>
-    {:else}
+<section class="panel">
+  <div class="panel-head">
+    <div>
+      <h3>{t($locale, 'unifiedDailyProgress')}</h3>
+      <p>{t($locale, 'unifiedDailyProgressDesc')}</p>
+    </div>
+    <span class="count-tag mono">{loading ? '—' : filteredRows.length}</span>
+  </div>
+
+  {#if loading}
+    <div class="empty">{t($locale, 'loading')}</div>
+  {:else if filteredRows.length === 0}
+    <div class="empty">{t($locale, 'noProgressForFilters')}</div>
+  {:else}
+    <div class="table-wrap">
       <table>
         <thead>
           <tr>
-            <th>{t($locale, 'colProject')}</th>
-            <th>{t($locale, 'colOperationType')}</th>
             <th>{t($locale, 'colWorkDate')}</th>
-            <th>{t($locale, 'colCompletion')}</th>
-            <th>{t($locale, 'colNotes')}</th>
+            <th>{t($locale, 'machineLabel')}</th>
+            <th>{t($locale, 'departmentLabel')}</th>
+            <th>{t($locale, 'engineerLabel')}</th>
+            <th>{t($locale, 'achievementDetails')}</th>
+            <th>{t($locale, 'dailyAchievement')}</th>
+            <th>{t($locale, 'cumulativeAchievement')}</th>
           </tr>
         </thead>
         <tbody>
-          {#each filtered as row}
+          {#each filteredRows as row (row.id)}
             <tr>
-              <td class="name">{row.project_name_snapshot}</td>
-              <td>{row.operation_type}</td>
-              <td class="mono muted">{formatDate(row.work_date)}</td>
-              <td class="mono">{row.completion_percent}%</td>
-              <td class="muted">{row.notes || '—'}</td>
+              <td class="mono muted">{formatDate(row.workDate)}</td>
+              <td class="machine-name">{row.machine}</td>
+              <td><span class="source source-{row.source}">{t($locale, row.source)}</span></td>
+              <td>{row.engineer}</td>
+              <td>{row.detail}{row.pieces !== null ? ` · ${row.pieces} ${t($locale, 'pieceUnit')}` : ''}</td>
+              <td class="mono">{row.dailyValue}%</td>
+              <td>
+                <div class="table-progress">
+                  <div class="track"><div class="fill" class:followup-fill={row.source === 'followup'} class:procurement-fill={row.source === 'procurement'} style="width:{row.cumulativeValue}%"></div></div>
+                  <b class="mono">{row.cumulativeValue}%</b>
+                </div>
+              </td>
             </tr>
           {/each}
         </tbody>
       </table>
-    {/if}
-  </div>
+    </div>
+  {/if}
 </section>
 
 <style>
-  .panel {
+  .period-tabs {
+    display: inline-grid;
+    grid-template-columns: repeat(3, minmax(92px, 1fr));
+    gap: 4px;
+    padding: 4px;
+    margin-bottom: 12px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--paper);
+  }
+  .period-tabs button {
+    min-height: 36px;
+    padding: 7px 16px;
+    border: 0;
+    border-radius: 6px;
+    background: transparent;
+    color: var(--ink-soft);
+    font: inherit;
+    font-size: 13px;
+    font-weight: 800;
+    cursor: pointer;
+  }
+  .period-tabs button.active {
+    background: var(--navy);
+    color: #fff;
+    box-shadow: 0 4px 12px rgba(9, 45, 65, 0.18);
+  }
+  .filters {
+    display: grid;
+    grid-template-columns: minmax(190px, 240px) minmax(220px, 1fr);
+    gap: 12px;
+    align-items: end;
+  }
+  .filters label {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    min-width: 0;
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--ink-soft);
+  }
+  .filters select {
+    width: 100%;
+    min-height: 38px;
+    border: 1px solid var(--border);
+    border-radius: 7px;
+    padding: 7px 10px;
     background: var(--card);
+    color: var(--ink);
+    font: inherit;
+  }
+
+  .error-box {
+    padding: 11px 14px;
+    border: 1px solid var(--danger);
+    border-radius: 7px;
+    background: var(--danger-bg);
+    color: var(--danger-deep);
+    font-size: 13px;
+  }
+  .employee-panel {
+    margin-top: 18px;
+  }
+  .employee-columns {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 14px;
+  }
+  .employee-group {
+    border: 1px solid var(--border);
+    border-radius: 7px;
+    overflow: hidden;
+  }
+  .employee-group h4 {
+    margin: 0;
+    padding: 11px 13px;
+    background: var(--paper);
+    color: var(--ink);
+    font-size: 13px;
+  }
+  .employee-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    min-height: 58px;
+    padding: 9px 13px;
+    border-top: 1px solid var(--border);
+  }
+  .employee-row > div {
+    display: grid;
+    gap: 3px;
+  }
+  .employee-row b {
+    font-size: 13px;
+  }
+  .employee-row small,
+  .mini-empty {
+    color: var(--ink-soft);
+    font-size: 11.5px;
+  }
+  .employee-row strong {
+    color: var(--navy);
+    font-size: 22px;
+  }
+  .mini-empty {
+    padding: 18px 13px;
+    border-top: 1px solid var(--border);
+  }  .daily-stats {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 14px;
+  }
+  .stat {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 5px 14px;
+    align-items: center;
+    padding: 16px 18px;
+    border: 1px solid var(--border);
+    border-inline-start: 4px solid var(--navy-3);
+    border-radius: var(--radius);
+    background: var(--card);
+    box-shadow: var(--shadow);
+  }
+  .procurement-stat {
+    border-inline-start-color: var(--amber);
+  }
+  .stat-label {
+    font-size: 13px;
+    font-weight: 800;
+  }
+  .stat strong {
+    grid-row: 1 / 3;
+    grid-column: 2;
+    font-size: 25px;
+  }
+  .stat small {
+    color: var(--ink-soft);
+    font-size: 11.5px;
+  }
+  .panel {
+    padding: 18px 20px;
     border: 1px solid var(--border);
     border-radius: var(--radius);
+    background: var(--card);
     box-shadow: var(--shadow);
-    padding: 18px 20px;
-    margin-bottom: 18px;
-    overflow-x: auto;
+    min-width: 0;
   }
   .panel-head {
     display: flex;
-    align-items: center;
-    justify-content: flex-end;
-    gap: 10px;
-    margin-bottom: 4px;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 14px;
+    margin-bottom: 16px;
   }
   .panel-head h3 {
-    margin: 0;
-    margin-inline-end: auto;
+    margin: 0 0 4px;
     font-size: 15px;
   }
-  .count-tag {
-    font-size: 11px;
-    font-weight: 700;
-    background: var(--paper);
-    padding: 2px 9px;
-    border-radius: 20px;
+  .panel-head p {
+    margin: 0;
     color: var(--ink-soft);
-    border: 1px solid var(--border);
-  }
-  .desc {
-    margin: 0 0 14px;
     font-size: 12.5px;
-    color: var(--ink-soft);
   }
-  .search {
-    width: 100%;
-    max-width: 320px;
+  .count-tag {
+    flex-shrink: 0;
+    padding: 3px 9px;
     border: 1px solid var(--border);
-    border-radius: 8px;
-    padding: 7px 12px;
-    font-size: 13px;
-    margin-bottom: 14px;
+    border-radius: 20px;
     background: var(--paper);
+    color: var(--ink-soft);
+    font-size: 11px;
+  }
+  .machine-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+  }
+  .machine-card {
+    padding: 14px;
+    border: 1px solid var(--border);
+    border-radius: 7px;
+    background: var(--paper);
+  }
+  .machine-card h4 {
+    margin: 0 0 13px;
+    font-size: 13.5px;
+  }
+  .progress-line + .progress-line {
+    margin-top: 11px;
+  }
+  .progress-label {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 5px;
+    color: var(--ink-soft);
+    font-size: 11.5px;
+  }
+  .progress-label b {
     color: var(--ink);
   }
+  .track {
+    height: 7px;
+    overflow: hidden;
+    border-radius: 4px;
+    background: var(--border);
+  }
+  .fill {
+    height: 100%;
+    border-radius: 4px;
+    background: var(--navy-3);
+  }
+  .followup-fill {
+    background: var(--navy-3);
+  }
+  .procurement-fill {
+    background: var(--amber);
+  }
   .empty {
-    padding: 30px;
+    padding: 32px;
     text-align: center;
     color: var(--ink-soft);
     font-size: 13px;
   }
-  .bars {
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
-  }
-  .bar-row {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-  }
-  .bar-label {
-    width: 140px;
-    flex-shrink: 0;
-    font-size: 12.5px;
-    font-weight: 600;
-  }
-  .bar-track {
-    flex: 1;
-    height: 10px;
-    background: var(--paper);
-    border-radius: 6px;
-    overflow: hidden;
-  }
-  .bar-fill {
-    height: 100%;
-    background: var(--navy-3, #17456a);
-    border-radius: 6px;
-  }
-  .bar-value {
-    width: 40px;
-    text-align: end;
-    font-size: 12px;
-    font-weight: 700;
-  }
-  .bar-count {
-    width: 36px;
-    color: var(--ink-soft);
-    font-size: 11.5px;
+  .table-wrap {
+    overflow-x: auto;
   }
   table {
     width: 100%;
+    min-width: 900px;
     border-collapse: collapse;
-    font-size: 13px;
+    font-size: 12.5px;
   }
   th {
-    text-align: start;
-    font-size: 10.5px;
-    color: var(--steel-2);
-    text-transform: uppercase;
-    padding: 8px 12px;
-    background: var(--paper);
+    padding: 9px 10px;
     border-bottom: 1px solid var(--border);
-    font-weight: 600;
+    background: var(--paper);
+    color: var(--steel-2);
+    font-size: 10.5px;
+    font-weight: 700;
+    text-align: center;
+    text-transform: uppercase;
   }
   td {
-    text-align: start;
-    padding: 10px 12px;
+    padding: 11px 10px;
     border-bottom: 1px solid var(--border);
+    text-align: center;
+    vertical-align: middle;
   }
   tr:last-child td {
-    border-bottom: none;
+    border-bottom: 0;
   }
-  .name {
+  .machine-name {
     font-weight: 700;
-  }
-  .mono {
-    font-family: var(--font-mono);
   }
   .muted {
     color: var(--ink-soft);
+  }
+  .source {
+    display: inline-flex;
+    padding: 3px 9px;
+    border-radius: 20px;
+    font-size: 11px;
+    font-weight: 700;
+    white-space: nowrap;
+  }
+  .source-followup {
+    background: var(--info-bg);
+    color: var(--info-ink);
+  }
+  .source-procurement {
+    background: var(--amber-bg);
+    color: var(--amber-ink);
+  }
+  .table-progress {
+    display: grid;
+    grid-template-columns: minmax(70px, 1fr) 38px;
+    align-items: center;
+    gap: 8px;
+  }
+  .table-progress b {
+    font-size: 11.5px;
+  }
+
+  @media (max-width: 760px) {
+    .filters,
+    .daily-stats,
+    .machine-grid,
+    .employee-columns {
+      grid-template-columns: 1fr;
+    }
+    .stat strong {
+      font-size: 22px;
+    }
   }
 </style>

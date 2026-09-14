@@ -1,5 +1,5 @@
 import type { Locale } from '../stores/locale';
-import type { ProjectStatus } from '../types';
+import type { ProjectStatus, UserRole, CustomerRequestStatus } from '../types';
 
 // ============================================================================
 //  DICTIONARY — every string on every DASHBOARD screen (Admin, Designer,
@@ -47,12 +47,12 @@ const dict = {
     accounting: 'المحاسبة',
     developer: 'مطوّر',
     followup: 'مهندس المتابعة',
+    customer: 'زبون',
 
     // ---- Follow-up Engineer dashboard ----
     followupHomeTitle: 'تسجيل عمليات التشغيل',
     followupDesc: 'سجّل كل عملية تشغيل (ليزر، تشغيل CNC، خراطة، لحام، تجميع...) ونسبة الإنجاز اليومية لكل عامل.',
     colOperationType: 'نوع العملية',
-    colWorkerName: 'اسم العامل',
     colWorkDate: 'التاريخ',
     colCompletion: 'نسبة الإنجاز (%)',
     colNotes: 'ملاحظات',
@@ -66,6 +66,29 @@ const dict = {
 
     // ---- Factory Progress (Admin, read-only) ----
     factoryProgressDesc: 'سجل عمليات التشغيل الذي أدخله مهندس المتابعة — للقراءة فقط.',
+    operationsProgressNav: 'تقدّم المصنع والمشتريات',
+    mgmtUnifiedProgressDesc: 'شاهد إنجاز المتابعة والمشتريات يومياً والتقدّم التراكمي لكل ماكينة.',
+    filterByDay: 'حسب اليوم',
+    filterByMachine: 'حسب الماكينة',
+    showAllDays: 'عرض كل الأيام',
+    allMachines: 'كل الماكينات',
+    followupEngineerDaily: 'إنجاز مهندس المتابعة',
+    procurementEngineerDaily: 'إنجاز مهندس المشتريات',
+    approvedEntries: 'سجل معتمد',
+    purchasedPieces: 'قطعة مشتراة',
+    machineProgressToDate: 'التقدّم التراكمي حسب الماكينة',
+    machineProgressToDateDesc: 'ما تم إنجازه حتى الآن في المتابعة والمشتريات لكل ماكينة.',
+    unifiedDailyProgress: 'الإنجاز اليومي الموحّد',
+    unifiedDailyProgressDesc: 'سجل واحد يجمع عمل مهندس المتابعة ومهندس المشتريات.',
+    noProgressForFilters: 'لا يوجد إنجاز معتمد مطابق لليوم والماكينة المحددين.',
+    machineLabel: 'الماكينة',
+    departmentLabel: 'القسم',
+    engineerLabel: 'المهندس',
+    achievementDetails: 'تفاصيل الإنجاز',
+    dailyAchievement: 'إنجاز اليوم',
+    cumulativeAchievement: 'الإنجاز حتى الآن',
+    purchasedMaterials: 'شراء مواد',
+    pieceUnit: 'قطعة',
     noMatchingOperations: 'لا توجد عمليات مطابقة.',
 
     // ---- Users & Roles (Admin) ----
@@ -99,16 +122,12 @@ const dict = {
     pricesSavedToast: '✅ تم حفظ الأسعار.',
     colMaterial: 'المادة',
 
-    // ---- Factory workers + approval workflow ----
-    workersTitle: 'العمال',
-    addWorkerBtn: '+ إضافة عامل',
-    workerNamePlaceholder: 'اسم العامل',
-    workerAddedSuccess: '✅ تمت إضافة العامل.',
-    workerAddErrorPrefix: 'حدث خطأ أثناء الإضافة: ',
-    removeWorkerAction: 'حذف',
-    removingWorkerTemplate: 'جارٍ حذف "{name}"…',
-    noWorkersYet: 'لا يوجد عمال مسجّلون بعد.',
-    pendingApprovalTitle: 'بانتظار الموافقة',
+    // ---- Factory approval workflow ----
+    //  The worker roster is gone: progress is tracked per MACHINE, which is
+    //  what both the factory and the Admin plan against. Its keys
+    //  (workersTitle, noWorkersYet, colWorker…) were removed with it rather
+    //  than left behind as dead entries.
+    pendingApprovalTitle: 'الموافقة على طلبات المتابعة',
     approveAction: '✅ موافقة',
     rejectAction: '❌ رفض',
     noPendingEntries: 'لا توجد إدخالات بانتظار الموافقة.',
@@ -118,8 +137,6 @@ const dict = {
     factoryProgressByMachine: 'التقدم حسب الماكينة',
     dailyProgressTitle: 'سجل التقدم اليومي',
     searchByProject: 'ابحث بالمشروع',
-    selectWorkerPlaceholder: 'اختر العامل',
-    colWorker: 'العامل',
     colApprovalStatus: 'الحالة',
     approvalStatusPending: 'بانتظار الموافقة',
     approvalStatusApproved: 'موافَق عليه',
@@ -219,6 +236,33 @@ const dict = {
     mgmtReportsDesc: 'أداء المشاريع والقيمة الشهرية، جاهزة للتصدير بصيغة PDF أو Excel في أي وقت.',
     openArrow: 'فتح ←',
 
+    // ---- Admin dashboard widgets ----
+    addWidgetBtn: 'إضافة عنصر',
+    exportBtn: 'تصدير',
+    addWidgetDrawerTitle: 'إضافة عنصر',
+    vsLastMonth: 'مقارنة بالشهر الماضي',
+    trendCardTitle: 'قيمة المشاريع المعتمدة',
+    trendCurrentLabel: 'هذا الشهر',
+    trendPreviousLabel: 'الشهر الماضي',
+    workforceTitle: 'توزيع الفريق',
+    workforceProduction: 'الإنتاج (المصنع والمتابعة)',
+    workforceDesignProc: 'التصميم والمشتريات',
+    workforceAdminAcc: 'الإدارة والمحاسبة',
+    busiestDayTitle: 'أكثر الأيام نشاطًا',
+    busiestDaySubtitle: 'عدد المشاريع الجديدة حسب يوم الأسبوع',
+    completionRateTitle: 'نسبة الإنجاز الناجح',
+    completionRateSub: 'مكتملة مقابل مرفوضة',
+    topProjectsTitle: 'أعلى المشاريع قيمة',
+    aiAssistantTitle: 'المساعد الذكي',
+    aiAssistantDesc: 'مساعد ذكي لتحليل بيانات لوحة التحكم والإجابة عن أسئلتك.',
+    aiAssistantComingSoon: 'سيتم تفعيل المساعد الذكي قريبًا.',
+    tagAnalytics: 'تحليلات',
+    widgetTrendDesc: 'رسم بياني لقيمة المشاريع المعتمدة يوميًا، مقارنةً بالفترة السابقة.',
+    widgetWorkforceDesc: 'توزيع العاملين حسب القسم: الإنتاج، التصميم والمشتريات، الإدارة والمحاسبة.',
+    widgetBusiestDesc: 'أكثر أيام الأسبوع استقبالًا لمشاريع جديدة.',
+    widgetGaugeDesc: 'نسبة المشاريع المكتملة مقابل المرفوضة.',
+    widgetTopProjectsDesc: 'أعلى خمسة مشاريع من حيث القيمة التقديرية.',
+
     // ---- Admin projects list ----
     projectsWithStatusTemplate: 'مشاريع — {status}',
     clearFilter: '✕ إزالة الفلتر',
@@ -279,6 +323,209 @@ const dict = {
     procurementEmpty: 'لا توجد أي مشاريع بانتظار المشتريات حاليًا.',
     priceItAction: '💲 تسعير',
 
+    // ---- Purchase requests (Procurement -> Factory approval) ----
+    purchaseRequestsNav: 'طلبات الشراء',
+    purchaseRequestsTitle: 'طلبات الشراء اليومية',
+    purchaseRequestsDesc: 'حدّد اليوم أي مواد من مشروع "قيد التصنيع" تشتريها، وأرسلها للمصنع للموافقة. النسبة المئوية تُحسب تلقائيًا من عدد القطع.',
+    purchaseRequestsEmpty: 'لا توجد أي مشاريع قيد التصنيع حاليًا.',
+    colCumulativePercent: 'النسبة التراكمية',
+    colTodayStatus: 'حالة اليوم',
+    purchaseStatusNotSubmitted: 'لم تُرسل اليوم',
+    purchaseStatusPending: 'بانتظار موافقة المصنع',
+    purchaseStatusApprovedToday: 'تمت الموافقة اليوم',
+    purchaseStatusRejectedToday: 'مرفوض — أعد الإرسال',
+    backToPurchaseRequests: '← رجوع لطلبات الشراء',
+    purchaseChecklistHint: 'حدّد بجانب كل سطر المواد التي تشتريها اليوم. الأسطر المؤكّدة من طلب سابق موافَق عليه تظهر محدّدة ومقفلة.',
+    piecesTodayLabel: 'قطع اليوم',
+    piecesCumulativeLabel: 'الإجمالي التراكمي',
+    totalPiecesLabel: 'إجمالي قطع المشروع',
+    sendToFactoryAction: '📤 إرسال للمصنع',
+    noRowsSelectedError: 'حدّد سطرًا واحدًا على الأقل قبل الإرسال.',
+    purchaseRequestSubmitted: '✅ تم إرسال طلب الشراء إلى المصنع.',
+    purchaseRequestSubmitError: 'حدث خطأ أثناء الإرسال: ',
+    awaitingFactoryApprovalNote: 'طلب اليوم بانتظار موافقة المصنع — سيُفتح جدول الاختيار من جديد بعد المعالجة.',
+
+    // ---- Factory: approve purchase requests ----
+    approvePurchaseRequestsNav: 'الموافقة على طلبات الشراء',
+    approvePurchaseRequestsDesc: 'طلبات شراء المواد المُرسلة من المشتريات، بانتظار موافقة المصنع قبل اعتبارها مؤمَّنة.',
+    noPendingPurchaseRequests: 'لا توجد طلبات شراء بانتظار الموافقة.',
+    colPiecesToday: 'قطع اليوم',
+    rejectionNotePlaceholder: 'سبب الرفض (اختياري)…',
+    confirmRejectAction: 'تأكيد الرفض',
+    cancelAction: 'إلغاء',
+
+    // ---- Admin: purchase progress (read-only) ----
+    purchaseProgressNav: 'تقدّم المشتريات',
+    purchaseProgressDesc: 'طلبات الشراء التي وافق عليها المصنع — النسبة اليومية والتراكمية لكل مشروع.',
+    mgmtPurchaseProgressDesc: 'تابع كم من مواد كل مشروع تم شراؤها فعليًا، يومًا بيوم، بعد موافقة المصنع.',
+    todayLabel: 'اليوم',
+    byPersonTitle: 'حسب الشخص (المشتريات)',
+    colPersonName: 'الاسم',
+    colTodayPieces: 'قطع اليوم',
+    colAvgCumulative: 'متوسط النسبة التراكمية',
+
+    // ---- Project detail pages ----
+    //  These are the CHROME around the calculator: top bars, meta cards,
+    //  notices, toasts, confirms. The calculator's own tables (column
+    //  headers, material names, tab names) stay English by design — that is
+    //  the shop-floor vocabulary — but nothing else on those screens has any
+    //  reason to be, and it read as a bug when an English toast landed on an
+    //  otherwise fully Arabic dashboard.
+    backToDashboard: '← رجوع إلى لوحة التحكم',
+    backToProjects: '← رجوع إلى المشاريع',
+    couldNotLoadProject: 'تعذّر تحميل هذا المشروع.',
+    noPermissionView: 'لا تملك صلاحية عرض هذا المشروع.',
+    viewingLabel: 'معاينة:',
+    reviewingLabel: 'مراجعة:',
+    readOnlyStatusTemplate: 'للقراءة فقط — {status}',
+    estimatedCostLabel: 'التكلفة التقديرية',
+    submittedLabel: 'تاريخ الإرسال',
+
+    // ---- Factory: project detail ----
+    markAsFinishedAction: '✅ إنهاء التصنيع',
+    confirmMarkFinishedTemplate: 'تحديد "{name}" كمكتمل التصنيع؟',
+    markedFinishedToast: '✅ تم تحديد المشروع كمكتمل التصنيع.',
+    couldNotUpdatePrefix: 'تعذّر التحديث: ',
+
+    // ---- Designer: project detail ----
+    submitToAdminAction: '📤 إرسال إلى المدير',
+    submittingGeneric: 'جارٍ الإرسال…',
+    draftSavedToast: '💾 تم حفظ المسودة.',
+    draftSavedBeforeLeaving: '💾 تم حفظ تعديلاتك كمسودة قبل الخروج.',
+    savedAsNameTemplate: '💾 تم الحفظ باسم "{name}" — لم يُعطَ اسم بعد، ويمكنك تغييره في أي وقت قبل الإرسال.',
+    savedAsNameShortTemplate: '💾 تم الحفظ باسم "{name}" — لم يُعطَ اسم بعد، ويمكنك تغييره في أي وقت.',
+    autoSaveErrorPrefix: 'خطأ في الحفظ التلقائي: ',
+    errorSavingPrefix: 'حدث خطأ أثناء الحفظ: ',
+    needRealNameBeforeSubmit: '⚠️ أعطِ المشروع اسمًا حقيقيًا قبل إرساله إلى المدير.',
+    errorSubmittingPrefix: 'حدث خطأ أثناء الإرسال: ',
+    saveDraftAction: '💾 حفظ المسودة',
+    submittingToAdminConfirm: 'جارٍ الإرسال إلى المدير للمراجعة…',
+    readOnlyLockedTemplate: '🔒 للقراءة فقط — الحالة: {status}',
+    rejectNoticeTemplate: '🚫 رفض المدير هذا المشروع — {n} من السطور بحاجة إلى تصحيح. ابحث عن النقطة الحمراء على التبويب، ثم السطر المظلَّل داخله.',
+
+    // ---- Admin: review screen ----
+    approveAndSendFactory: '✅ موافقة وإرسال إلى المصنع',
+    rejectWithCountTemplate: '❌ رفض ({n} سطر معلَّم)',
+    tickAtLeastOneRow: '⚠️ علّم سطرًا واحدًا على الأقل لتحديد ما يحتاج تصحيحًا قبل الرفض.',
+    flagRowsHint: 'علّم المربع بجانب أي سطر في أي جدول أدناه، ثم اكتب السبب — سيرى المصمم هذا السطر وهذا السبب بالتحديد عند إعادة فتح المشروع.',
+
+    // ---- Procurement: purchase file ----
+    saveProgressAction: '💾 حفظ التقدّم',
+    completeAndSendAccounting: '✅ إنهاء وإرسال إلى المحاسبة',
+    resetFromSpecAction: '↺ إعادة التعيين من المواصفة',
+    startBlankAction: '⌫ البدء من ملف فارغ',
+    resetFromSpecTitle: 'إعادة نسخ صفوف المصمم مع تصفير كل الأسعار',
+    startBlankTitle: 'حذف كل الصفوف والبدء من الصفر',
+    purchaseFileTab: '🛒 ملف الشراء',
+    purchaseFileTabSub: 'الأسعار الحقيقية — أنت من يعبّئها',
+    designerEstimateTab: '📐 تقدير المصمم',
+    designerEstimateTabSub: 'مرجع للقراءة فقط',
+    unpricedRowsNoticeTemplate: '⚠ ما زال {n} من صفوف المواد بدون سعر للكيلوغرام — تظهر بعلامة "—" وتُحسب صفرًا في الإجمالي.',
+    designerEstimateNotice: '👁️ ملف المصمم كما أرسله بالضبط — مُسعَّر من جدول أسعار المواد، أي أن هذه <strong>تقديرات</strong>. للقراءة فقط: يبقى كما هو مهما أدخلت في ملف الشراء.',
+    designerEstimatedTotal: 'الإجمالي التقديري للمصمم',
+    purchaseFileSaved: '💾 تم حفظ ملف الشراء.',
+    errorCompletingPrefix: 'حدث خطأ أثناء الإنهاء: ',
+    confirmResetFromSpec: 'استبدال ملف الشراء بنسخة جديدة من مواصفات المصمم؟ سيُمسح كل سعر أدخلته. تبقى الفواتير المسجّلة كما هي.',
+    confirmStartBlank: 'تفريغ ملف الشراء بالكامل؟ سيُحذف كل صف وكل سعر. تبقى الفواتير المسجّلة كما هي.',
+    unpricedBlockSendTemplate: '⚠️ ما زال {n} سطرًا بلا سعر حقيقي للكيلوغرام، وتُحسب قيمتها صفرًا. يجب إدخال جميع الأسعار الحقيقية قبل إرسال الملف إلى المحاسبة.',
+
+    // ---- Accounting: purchase file preview ----
+    readOnlyPreviewTag: '🔒 معاينة للقراءة فقط',
+    noPurchaseFileYet: 'لم تُنشئ المشتريات ملف شراء لهذا المشروع بعد، فلا يوجد ما يُعاين. التقدير الظاهر في لوحة التحكم ما زال تقدير المصمم.',
+    actualCostLabel: 'التكلفة الفعلية (المشتريات)',
+    invoicesLoggedLabel: 'الفواتير المسجّلة',
+    unpricedSentWarnTemplate: '⚠ أُرسل {n} من صفوف المواد بدون سعر للكيلوغرام. تُحسب صفرًا، أي أن الإجمالي أعلاه أقل من الحقيقي.',
+    supplierInvoicesTitle: 'فواتير الموردين',
+    colInvoiceNo: 'رقم الفاتورة',
+    colInvoiceClient: 'الجهة / المحل',
+    colInvoiceValue: 'القيمة',
+    colInvoiceFile: 'الملف',
+    openLinkLabel: 'فتح ↗',
+
+    // ---- PDF export ----
+    noDataToExport: 'لا توجد بيانات للتصدير.',
+    pdfExportFailedPrefix: 'فشل تصدير PDF: ',
+
+    // ---- Follow-up Engineer ----
+    //  He may only report against machines the factory is CURRENTLY building.
+    noProjectsInProduction: 'لا توجد ماكينات قيد التصنيع حاليًا',
+    inProductionOnlyHint: 'تظهر هنا الماكينات قيد التصنيع فقط. إذا كانت القائمة فارغة، فلا يوجد ما يُسجَّل عليه اليوم.',
+    loadProjectsErrorPrefix: 'تعذّر تحميل الماكينات: ',
+    customOperationOption: '✍️ عملية مخصصة…',
+    customOperationPlaceholder: 'اكتب اسم العملية',
+    cancelCustomOperation: '↩ رجوع إلى القائمة',
+    cancelCustomOperationTitle: 'إلغاء العملية المخصصة والرجوع إلى العمليات الجاهزة',
+    customOperationNeedsName: 'اكتب اسم العملية المخصصة، أو ارجع إلى القائمة.',
+
+    // ---- Factory: progress monitoring (its own copy of Admin's view) ----
+    factoryOwnProgressDesc: 'العمليات التي وافقت عليها — هذا هو السجل الذي يصل إلى المدير.',
+
+    // ---- Customer intake: request status labels ----
+    statusRequestNew: 'جديد',
+    statusRequestAssigned: 'معيّن لمصمم',
+    statusRequestRejected: 'مرفوض',
+    statusRequestClosed: 'مغلق',
+
+    // ---- Customer self-registration ----
+    signupHeading: 'إنشاء حساب زبون',
+    signupFullNameLabel: 'الاسم الكامل',
+    signupCompanyLabel: 'اسم الشركة (اختياري)',
+    signupPhoneLabel: 'رقم الهاتف',
+    signupPhoneHint: 'يُرجى التأكد من أنّ هذا الرقم مفعَّل على واتساب.',
+    signupSubmit: 'إنشاء الحساب',
+    signupSubmitting: 'جارٍ إنشاء الحساب…',
+    signupErrorPrefix: 'تعذّر إنشاء الحساب: ',
+    signupCheckEmailNotice: 'تم إنشاء الحساب. يرجى تفقد بريدك الإلكتروني لتأكيده ثم تسجيل الدخول.',
+    signupHaveAccountLink: 'لديك حساب؟ تسجيل الدخول',
+    loginNoAccountLink: 'زبون جديد؟ إنشاء حساب',
+
+    // ---- Customer dashboard ----
+    myRequests: 'طلباتي',
+    newRequestBtn: 'طلب جديد',
+    requestsCountSuffix: 'طلب',
+    noRequestsYet: 'لا توجد طلبات بعد.',
+    colRequestTitle: 'عنوان الطلب',
+    colMachineType: 'نوع الماكينة',
+    newRequestTitle: 'طلب جديد',
+    machineTypeLabel: 'نوع الماكينة',
+    quantityLabel: 'الكمية',
+    descriptionLabel: 'وصف ومواصفات مبدئية',
+    submitRequestBtn: 'إرسال الطلب',
+    requestSubmittedSuccess: 'تم إرسال الطلب بنجاح.',
+    requestSubmitErrorPrefix: 'تعذّر إرسال الطلب: ',
+    notAssignedYet: 'لم يتم تعيين مصمم بعد.',
+    backToRequests: 'عودة إلى الطلبات',
+    specDetailsLabel: 'المواصفات المبدئية',
+
+    // ---- Factory: customer requests ----
+    customerRequestsNav: 'طلبات الزبائن',
+    assignDesignerLabel: 'تعيين مصمم',
+    selectDesignerPlaceholder: 'اختر مصممًا',
+    assignBtn: 'تعيين',
+    assignedSuccessToast: 'تم تعيين المصمم بنجاح.',
+    assignErrorPrefix: 'تعذّر التعيين: ',
+    rejectRequestBtn: 'رفض الطلب',
+    factoryNoteLabel: 'ملاحظة المصنع (اختياري)',
+    noRequestsPlain: 'لا توجد طلبات.',
+
+    // ---- Designer: assigned requests ----
+    assignedRequestsNav: 'الطلبات المعيّنة لي',
+
+    // ---- Customer/Designer chat ----
+    chatTitle: 'المحادثة',
+    chatMessagePlaceholder: 'اكتب رسالة…',
+    sendBtn: 'إرسال',
+    noMessagesYet: 'لا توجد رسائل بعد.',
+    chatAvailableAfterAssignment: 'ستتوفر المحادثة بعد تعيين مصمم لهذا الطلب.',
+    youLabel: 'أنت',
+
+    // ---- Sign-in screen ----
+    loginHeading: 'تسجيل الدخول إلى حسابك',
+    loginEmailLabel: 'البريد الإلكتروني',
+    loginPasswordLabel: 'كلمة المرور',
+    loginSubmit: 'تسجيل الدخول',
+    loginSubmitting: 'جارٍ تسجيل الدخول…',
+
     // ---- shared Toast component ----
     toastUndo: '↩ تراجع',
     toastClose: 'إغلاق',
@@ -306,12 +553,12 @@ const dict = {
     accounting: 'Accounting',
     developer: 'Developer',
     followup: 'Follow-up Engineer',
+    customer: 'Customer',
 
     // ---- Follow-up Engineer dashboard ----
     followupHomeTitle: 'Log Operations',
     followupDesc: "Log every operation (laser cutting, CNC machining, turning, welding, assembly...) and each worker's daily completion percentage.",
     colOperationType: 'Operation',
-    colWorkerName: 'Worker',
     colWorkDate: 'Date',
     colCompletion: 'Completion (%)',
     colNotes: 'Notes',
@@ -325,6 +572,29 @@ const dict = {
 
     // ---- Factory Progress (Admin, read-only) ----
     factoryProgressDesc: "Operations log entered by the Follow-up Engineer — read-only.",
+    operationsProgressNav: 'Factory & Purchase Progress',
+    mgmtUnifiedProgressDesc: 'See daily follow-up and procurement output with cumulative progress for every machine.',
+    filterByDay: 'By day',
+    filterByMachine: 'By machine',
+    showAllDays: 'Show all days',
+    allMachines: 'All machines',
+    followupEngineerDaily: 'Follow-up engineer output',
+    procurementEngineerDaily: 'Procurement engineer output',
+    approvedEntries: 'approved entries',
+    purchasedPieces: 'purchased pieces',
+    machineProgressToDate: 'Cumulative progress by machine',
+    machineProgressToDateDesc: 'Work completed to date in follow-up and procurement for every machine.',
+    unifiedDailyProgress: 'Unified daily progress',
+    unifiedDailyProgressDesc: 'One log combining the Follow-up and Procurement engineers work.',
+    noProgressForFilters: 'No approved progress matches the selected day and machine.',
+    machineLabel: 'Machine',
+    departmentLabel: 'Department',
+    engineerLabel: 'Engineer',
+    achievementDetails: 'Achievement details',
+    dailyAchievement: 'Daily progress',
+    cumulativeAchievement: 'Progress to date',
+    purchasedMaterials: 'Material purchasing',
+    pieceUnit: 'pcs',
     noMatchingOperations: 'No matching operations.',
 
     // ---- Users & Roles (Admin) ----
@@ -358,16 +628,8 @@ const dict = {
     pricesSavedToast: '✅ Prices saved.',
     colMaterial: 'Material',
 
-    // ---- Factory workers + approval workflow ----
-    workersTitle: 'Workers',
-    addWorkerBtn: '+ Add Worker',
-    workerNamePlaceholder: "Worker's name",
-    workerAddedSuccess: '✅ Worker added.',
-    workerAddErrorPrefix: 'Error adding worker: ',
-    removeWorkerAction: 'Remove',
-    removingWorkerTemplate: 'Removing "{name}"…',
-    noWorkersYet: 'No workers registered yet.',
-    pendingApprovalTitle: 'Pending Approval',
+    // ---- Factory approval workflow ----
+    pendingApprovalTitle: 'Approve Follow-up Requests',
     approveAction: '✅ Approve',
     rejectAction: '❌ Reject',
     noPendingEntries: 'No entries pending approval.',
@@ -377,8 +639,6 @@ const dict = {
     factoryProgressByMachine: 'Progress by Machine',
     dailyProgressTitle: 'Daily Progress Log',
     searchByProject: 'Search by project',
-    selectWorkerPlaceholder: 'Select worker',
-    colWorker: 'Worker',
     colApprovalStatus: 'Status',
     approvalStatusPending: 'Pending Approval',
     approvalStatusApproved: 'Approved',
@@ -478,6 +738,33 @@ const dict = {
     mgmtReportsDesc: 'Project performance and monthly value, ready to export as PDF or Excel anytime.',
     openArrow: 'Open →',
 
+    // ---- Admin dashboard widgets ----
+    addWidgetBtn: 'Add Widget',
+    exportBtn: 'Export',
+    addWidgetDrawerTitle: 'Add Widget',
+    vsLastMonth: 'vs last month',
+    trendCardTitle: 'Approved Project Value',
+    trendCurrentLabel: 'This month',
+    trendPreviousLabel: 'Last month',
+    workforceTitle: 'Workforce',
+    workforceProduction: 'Production (Factory & Follow-up)',
+    workforceDesignProc: 'Design & Procurement',
+    workforceAdminAcc: 'Admin & Accounting',
+    busiestDayTitle: 'Busiest Day',
+    busiestDaySubtitle: 'New projects by weekday',
+    completionRateTitle: 'Successful Completion Rate',
+    completionRateSub: 'Completed vs rejected',
+    topProjectsTitle: 'Top Projects by Value',
+    aiAssistantTitle: 'AI Assistant',
+    aiAssistantDesc: 'A smart assistant to analyze your dashboard data and answer your questions.',
+    aiAssistantComingSoon: 'The AI assistant will be enabled soon.',
+    tagAnalytics: 'Analytics',
+    widgetTrendDesc: 'Daily approved project value, compared with the previous period.',
+    widgetWorkforceDesc: 'Staff breakdown by department: production, design & procurement, admin & accounting.',
+    widgetBusiestDesc: 'Which weekday receives the most new projects.',
+    widgetGaugeDesc: 'Share of completed projects vs rejected ones.',
+    widgetTopProjectsDesc: 'The five highest-value projects by estimated cost.',
+
     // ---- Admin projects list ----
     projectsWithStatusTemplate: 'Projects — {status}',
     clearFilter: '✕ Clear filter',
@@ -538,6 +825,203 @@ const dict = {
     procurementEmpty: 'No projects waiting on Procurement right now.',
     priceItAction: '💲 Price It',
 
+    // ---- Purchase requests (Procurement -> Factory approval) ----
+    purchaseRequestsNav: 'Purchase Requests',
+    purchaseRequestsTitle: 'Daily Purchase Requests',
+    purchaseRequestsDesc: 'Pick which materials from an "In Production" project you’re buying today, and send them to the factory for approval. The percentage is computed automatically from piece counts.',
+    purchaseRequestsEmpty: 'No projects are currently in production.',
+    colCumulativePercent: 'Cumulative %',
+    colTodayStatus: "Today's Status",
+    purchaseStatusNotSubmitted: 'Not submitted today',
+    purchaseStatusPending: 'Awaiting factory approval',
+    purchaseStatusApprovedToday: 'Approved today',
+    purchaseStatusRejectedToday: 'Rejected — resubmit',
+    backToPurchaseRequests: '← Back to Purchase Requests',
+    purchaseChecklistHint: 'Check the materials you are buying today next to each row. Rows already approved in a previous request show checked and locked.',
+    piecesTodayLabel: 'Pieces today',
+    piecesCumulativeLabel: 'Cumulative total',
+    totalPiecesLabel: 'Total project pieces',
+    sendToFactoryAction: '📤 Send to Factory',
+    noRowsSelectedError: 'Select at least one row before sending.',
+    purchaseRequestSubmitted: '✅ Purchase request sent to the factory.',
+    purchaseRequestSubmitError: 'Error sending request: ',
+    awaitingFactoryApprovalNote: "Today's request is awaiting factory approval — the checklist reopens once it's handled.",
+
+    // ---- Factory: approve purchase requests ----
+    approvePurchaseRequestsNav: 'Approve Purchase Requests',
+    approvePurchaseRequestsDesc: 'Material purchase requests submitted by Procurement, awaiting factory approval before they count as secured.',
+    noPendingPurchaseRequests: 'No purchase requests pending approval.',
+    colPiecesToday: 'Pieces Today',
+    rejectionNotePlaceholder: 'Reason for rejection (optional)…',
+    confirmRejectAction: 'Confirm Reject',
+    cancelAction: 'Cancel',
+
+    // ---- Admin: purchase progress (read-only) ----
+    purchaseProgressNav: 'Purchase Progress',
+    purchaseProgressDesc: "Purchase requests the factory has approved — each project's daily and cumulative percentage.",
+    mgmtPurchaseProgressDesc: 'Track how much of each project’s materials have actually been purchased, day by day, once the factory approves.',
+    todayLabel: 'Today',
+    byPersonTitle: 'By Person (Procurement)',
+    colPersonName: 'Name',
+    colTodayPieces: 'Pieces Today',
+    colAvgCumulative: 'Avg. Cumulative %',
+
+    // ---- Project detail pages ----
+    backToDashboard: '← Back to Dashboard',
+    backToProjects: '← Back to Projects',
+    couldNotLoadProject: 'Could not load this project.',
+    noPermissionView: "You don't have permission to view this project.",
+    viewingLabel: 'Viewing:',
+    reviewingLabel: 'Reviewing:',
+    readOnlyStatusTemplate: 'Read-only — {status}',
+    estimatedCostLabel: 'Estimated Cost',
+    submittedLabel: 'Submitted',
+
+    // ---- Factory: project detail ----
+    markAsFinishedAction: '✅ Mark as Finished',
+    confirmMarkFinishedTemplate: 'Mark "{name}" as finished?',
+    markedFinishedToast: '✅ Marked as finished.',
+    couldNotUpdatePrefix: 'Could not update: ',
+
+    // ---- Designer: project detail ----
+    submitToAdminAction: '📤 Submit to Admin',
+    submittingGeneric: 'Submitting…',
+    draftSavedToast: '💾 Draft saved.',
+    draftSavedBeforeLeaving: '💾 Your changes were saved as a draft before leaving.',
+    savedAsNameTemplate: '💾 Saved as "{name}" — no name was given yet; you can rename it anytime before submitting.',
+    savedAsNameShortTemplate: '💾 Saved as "{name}" — no name was given yet; you can rename it anytime.',
+    autoSaveErrorPrefix: 'Auto-save error: ',
+    errorSavingPrefix: 'Error saving: ',
+    needRealNameBeforeSubmit: '⚠️ Please give the project a real name before submitting it to Admin.',
+    errorSubmittingPrefix: 'Error submitting: ',
+    saveDraftAction: '💾 Save Draft',
+    submittingToAdminConfirm: 'Submitting to Admin for review…',
+    readOnlyLockedTemplate: '🔒 Read-only — status is {status}',
+    rejectNoticeTemplate: '🚫 Admin rejected this project — {n} row(s) need fixing. Look for the red dot on the tab, then the highlighted row inside it.',
+
+    // ---- Admin: review screen ----
+    approveAndSendFactory: '✅ Approve & Send to Factory',
+    rejectWithCountTemplate: '❌ Reject ({n} flagged)',
+    tickAtLeastOneRow: '⚠️ Please tick at least one row above to mark what needs fixing before rejecting.',
+    flagRowsHint: 'Tick the box on any row, in any table below, then write why — the Designer will see exactly that row and reason when they reopen it.',
+
+    // ---- Procurement: purchase file ----
+    saveProgressAction: '💾 Save Progress',
+    completeAndSendAccounting: '✅ Complete & Send to Accounting',
+    resetFromSpecAction: '↺ Reset from Spec',
+    startBlankAction: '⌫ Start Blank',
+    resetFromSpecTitle: "Re-copy the designer's rows and clear all prices",
+    startBlankTitle: 'Remove every row and start from nothing',
+    purchaseFileTab: '🛒 Purchase File',
+    purchaseFileTabSub: 'Real prices — yours to fill in',
+    designerEstimateTab: '📐 Designer Estimate',
+    designerEstimateTabSub: 'Read-only reference',
+    unpricedRowsNoticeTemplate: '⚠ {n} material row(s) still have no $/kg — they show “—” and count as $0 in the total.',
+    designerEstimateNotice:
+      "👁️ The designer's own file, exactly as submitted — priced from the material price table, so these are <strong>estimates</strong>. Read-only: it stays untouched no matter what you enter in the purchase file.",
+    designerEstimatedTotal: "Designer's Estimated Total",
+    purchaseFileSaved: '💾 Purchase file saved.',
+    errorCompletingPrefix: 'Error completing: ',
+    confirmResetFromSpec: "Replace the purchase file with a fresh copy of the designer's specs? Every price you have entered will be cleared. Logged invoices are kept.",
+    confirmStartBlank: 'Empty the purchase file completely? Every row and price will be removed. Logged invoices are kept.',
+    unpricedBlockSendTemplate: '⚠️ {n} row(s) still have no $/kg entered, so they count as $0. Fill in every real price before sending this file to Accounting.',
+
+    // ---- Accounting: purchase file preview ----
+    readOnlyPreviewTag: '🔒 Read-only preview',
+    noPurchaseFileYet: "Procurement has not created a purchase file for this project yet, so there is nothing to preview. The estimate on the dashboard is still the designer's.",
+    actualCostLabel: 'Actual Cost (Procurement)',
+    invoicesLoggedLabel: 'Invoices Logged',
+    unpricedSentWarnTemplate: '⚠ {n} material row(s) were sent with no $/kg entered. They count as $0, so the total above is understated.',
+    supplierInvoicesTitle: 'Supplier Invoices',
+    colInvoiceNo: 'Invoice #',
+    colInvoiceClient: 'Client / Shop',
+    colInvoiceValue: 'Value',
+    colInvoiceFile: 'File',
+    openLinkLabel: 'Open ↗',
+
+    // ---- PDF export ----
+    noDataToExport: 'No data to export.',
+    pdfExportFailedPrefix: 'PDF export failed: ',
+
+    // ---- Follow-up Engineer ----
+    noProjectsInProduction: 'No machines are currently in production',
+    inProductionOnlyHint: 'Only machines currently in production appear here. An empty list means there is nothing to log against today.',
+    loadProjectsErrorPrefix: 'Could not load machines: ',
+    customOperationOption: '✍️ Custom operation…',
+    customOperationPlaceholder: 'Type the operation name',
+    cancelCustomOperation: '↩ Back to the list',
+    cancelCustomOperationTitle: 'Discard the custom operation and go back to the preset list',
+    customOperationNeedsName: 'Type a name for the custom operation, or go back to the list.',
+
+    // ---- Factory: progress monitoring (its own copy of Admin's view) ----
+    factoryOwnProgressDesc: 'The operations you have approved — this is the log that reaches the Admin.',
+
+    // ---- Customer intake: request status labels ----
+    statusRequestNew: 'New',
+    statusRequestAssigned: 'Assigned',
+    statusRequestRejected: 'Rejected',
+    statusRequestClosed: 'Closed',
+
+    // ---- Customer self-registration ----
+    signupHeading: 'Create a Customer Account',
+    signupFullNameLabel: 'Full Name',
+    signupCompanyLabel: 'Company Name (optional)',
+    signupPhoneLabel: 'Phone Number',
+    signupPhoneHint: 'Make sure this number is reachable on WhatsApp.',
+    signupSubmit: 'Create Account',
+    signupSubmitting: 'Creating account…',
+    signupErrorPrefix: 'Could not create the account: ',
+    signupCheckEmailNotice: 'Account created. Please check your email to confirm it, then sign in.',
+    signupHaveAccountLink: 'Already have an account? Sign in',
+    loginNoAccountLink: 'New customer? Create an account',
+
+    // ---- Customer dashboard ----
+    myRequests: 'My Requests',
+    newRequestBtn: 'New Request',
+    requestsCountSuffix: 'requests',
+    noRequestsYet: 'No requests yet.',
+    colRequestTitle: 'Request Title',
+    colMachineType: 'Machine Type',
+    newRequestTitle: 'New Request',
+    machineTypeLabel: 'Machine Type',
+    quantityLabel: 'Quantity',
+    descriptionLabel: 'Description / Initial Specs',
+    submitRequestBtn: 'Submit Request',
+    requestSubmittedSuccess: 'Request submitted successfully.',
+    requestSubmitErrorPrefix: 'Could not submit the request: ',
+    notAssignedYet: 'No designer assigned yet.',
+    backToRequests: 'Back to Requests',
+    specDetailsLabel: 'Initial Specs',
+
+    // ---- Factory: customer requests ----
+    customerRequestsNav: 'Customer Requests',
+    assignDesignerLabel: 'Assign Designer',
+    selectDesignerPlaceholder: 'Select a designer',
+    assignBtn: 'Assign',
+    assignedSuccessToast: 'Designer assigned successfully.',
+    assignErrorPrefix: 'Could not assign: ',
+    rejectRequestBtn: 'Reject Request',
+    factoryNoteLabel: 'Factory note (optional)',
+    noRequestsPlain: 'No requests.',
+
+    // ---- Designer: assigned requests ----
+    assignedRequestsNav: 'Requests Assigned to Me',
+
+    // ---- Customer/Designer chat ----
+    chatTitle: 'Chat',
+    chatMessagePlaceholder: 'Type a message…',
+    sendBtn: 'Send',
+    noMessagesYet: 'No messages yet.',
+    chatAvailableAfterAssignment: 'Chat will be available once a designer is assigned to this request.',
+    youLabel: 'You',
+
+    // ---- Sign-in screen ----
+    loginHeading: 'Sign in to your account',
+    loginEmailLabel: 'Email address',
+    loginPasswordLabel: 'Password',
+    loginSubmit: 'Sign In',
+    loginSubmitting: 'Signing in…',
+
     // ---- shared Toast component ----
     toastUndo: '↩ Undo',
     toastClose: 'Close',
@@ -558,6 +1042,31 @@ export function t(loc: Locale, key: DictKey): string {
   return dict[loc][key];
 }
 
+const ROLE_KEY: Record<UserRole, DictKey> = {
+  admin: 'admin',
+  designer: 'designer',
+  factory: 'factory',
+  procurement: 'procurement',
+  accounting: 'accounting',
+  followup: 'followup',
+  developer: 'developer',
+  customer: 'customer',
+};
+
+/** Translated name of a role. Used for the sidebar tag and profile chip, so
+ *  those read the SIGNED-IN user's role.
+ *
+ *  Each dashboard layout used to hand AppShell a hardcoded label for its own
+ *  section — `roleLabel={t($locale, 'admin')}` in admin/+layout, and so on.
+ *  That was fine only as long as nobody could open a section that wasn't
+ *  theirs; the moment they could, the profile chip confidently displayed
+ *  "accounting@swb.com / المدير". The label was describing the URL, not the
+ *  person. */
+export function roleLabel(loc: Locale, role: UserRole | null): string {
+  if (!role) return '';
+  return t(loc, ROLE_KEY[role]);
+}
+
 const STATUS_KEY: Record<ProjectStatus, DictKey> = {
   Draft: 'statusDraft',
   'Pending Admin': 'statusPendingAdmin',
@@ -574,5 +1083,18 @@ const STATUS_KEY: Record<ProjectStatus, DictKey> = {
  *  so it never renders blank. */
 export function statusLabel(loc: Locale, status: string): string {
   const key = STATUS_KEY[status as ProjectStatus];
+  return key ? t(loc, key) : status;
+}
+
+const REQUEST_STATUS_KEY: Record<CustomerRequestStatus, DictKey> = {
+  New: 'statusRequestNew',
+  Assigned: 'statusRequestAssigned',
+  Rejected: 'statusRequestRejected',
+  Closed: 'statusRequestClosed',
+};
+
+/** Translated display label for a raw customer_requests.status value. */
+export function requestStatusLabel(loc: Locale, status: string): string {
+  const key = REQUEST_STATUS_KEY[status as CustomerRequestStatus];
   return key ? t(loc, key) : status;
 }

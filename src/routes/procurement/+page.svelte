@@ -4,6 +4,7 @@
   import { supabase } from '$lib/supabaseClient';
   import { locale } from '$lib/stores/locale';
   import { t } from '$lib/i18n/dict';
+  import { formatCount as fmt } from '$lib/utils';
   import StatusBadge from '$lib/components/StatusBadge.svelte';
 
   interface ProjectRow {
@@ -25,15 +26,12 @@
     loading = false;
   });
 
-  function fmt(n: number) {
-    return Number(n || 0).toLocaleString('en-US', { maximumFractionDigits: 0 });
-  }
 </script>
 
 <section>
   <div class="panel">
     <div class="panel-head">
-      <span class="count-tag mono">{loading ? '—' : projects.length} {t($locale, 'projectsCountSuffix')}</span>
+      <span class="count-tag"><span class="mono">{loading ? '—' : projects.length}</span> {t($locale, 'projectsCountSuffix')}</span>
     </div>
     <p class="desc">{t($locale, 'procurementDesc')}</p>
 
@@ -43,14 +41,14 @@
       <div class="empty">{t($locale, 'procurementEmpty')}</div>
     {:else}
       <table>
-        <thead><tr><th>{t($locale, 'colProject')}</th><th>{t($locale, 'colDesignerName')}</th><th>{t($locale, 'colEstCost')}</th><th>{t($locale, 'colStatus')}</th></tr></thead>
+        <thead><tr><th>{t($locale, 'colProject')}</th><th>{t($locale, 'colDesignerName')}</th><th class="col-center">{t($locale, 'colEstCost')}</th><th class="col-center">{t($locale, 'colStatus')}</th></tr></thead>
         <tbody>
           {#each projects as proj}
             <tr class="clickable-row" on:click={() => goto(`/procurement/${proj.id}`)}>
               <td class="name">{proj.project_name}</td>
               <td>{proj.designer_name || '—'}</td>
               <td class="mono">${fmt(proj.total_cost)}</td>
-              <td><StatusBadge status={proj.status} userRole="procurement" locale={$locale} /></td>
+              <td class="col-center"><StatusBadge status={proj.status} userRole="procurement" locale={$locale} /></td>
             </tr>
           {/each}
         </tbody>
@@ -74,7 +72,6 @@
     padding: 16px 18px 4px;
   }
   .count-tag {
-    font-family: var(--font-mono);
     font-size: 11px;
     font-weight: 700;
     background: var(--paper);
@@ -102,7 +99,7 @@
     font-size: 13px;
   }
   th {
-    text-align: right;
+    text-align: center;
     padding: 12px 16px;
     background: var(--paper);
     font-size: 11.5px;
@@ -110,7 +107,7 @@
     border-bottom: 1px solid var(--border);
   }
   td {
-    text-align: start;
+    text-align: center;
     padding: 13px 16px;
     border-bottom: 1px solid var(--border);
   }
@@ -120,13 +117,10 @@
   .name {
     font-weight: 700;
   }
-  .mono {
-    font-family: var(--font-mono);
-  }
   .clickable-row {
     cursor: pointer;
   }
   .clickable-row:hover td {
-    background: var(--paper);
+    background: var(--card-hover);
   }
 </style>

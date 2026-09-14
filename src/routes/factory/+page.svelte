@@ -7,6 +7,8 @@
   import { t } from '$lib/i18n/dict';
   import { toast } from '$lib/stores/toast';
   import { notifyRole } from '$lib/calc/notify';
+  import { encodeNotification } from '$lib/i18n/notifications';
+  import { formatCount as fmt } from '$lib/utils';
   import StatusBadge from '$lib/components/StatusBadge.svelte';
 
   interface ProjectRow {
@@ -21,7 +23,6 @@
 
   let projects: ProjectRow[] = [];
   let loading = true;
-  let updatingId: string | null = null;
 
   async function loadProjects() {
     loading = true;
@@ -32,29 +33,11 @@
 
   onMount(loadProjects);
 
-  // Routed through the same 3-second Undo toast every other confirmation in
-  // this app uses (Delete, Submit to Admin) instead of a native confirm() —
-  // see the project's toast store. Marking a project Finished sends it on
-  // to Procurement, which is exactly the "Complete Production" step in the
-  // workflow (In Production → Complete Production → Completed).
-  function markFinished(proj: ProjectRow) {
-    toast.confirmWithUndo(t($locale, 'markFinishedTemplate').replace('{name}', proj.project_name), 3, async () => {
-      updatingId = proj.id;
-      const { error } = await supabase.from('projects').update({ status: 'Complete Production' }).eq('id', proj.id);
-      updatingId = null;
-      if (error) {
-        toast.notify(t($locale, 'markFinishedErrorPrefix') + error.message, 'error');
-      } else {
-        projects = projects.filter((p) => p.id !== proj.id);
-        toast.notify(t($locale, 'markFinishedSuccess'), 'success');
-        notifyRole('procurement', `"${proj.project_name}" has finished manufacturing and is ready for pricing.`, `/procurement/${proj.id}`);
-      }
-    });
-  }
-
-  function fmt(n: number) {
-    return Number(n || 0).toLocaleString('en-US', { maximumFractionDigits: 0 });
-  }
+  // "Mark Finished" used to be a button on every row here. It has moved into
+  // the project itself (factory/projects/[id]) so that handing a build to
+  // Procurement — the factory's counterpart to the designer's "Submit to
+  // Admin" — happens where you can see what you are handing over, instead of
+  // being one stray click on a list row away.
 </script>
 
 <section>
@@ -65,7 +48,7 @@
   <div class="panel">
     <div class="panel-head">
       <h3>{t($locale, 'inProduction')}</h3>
-      <span class="count-tag mono">{loading ? '—' : projects.length} {t($locale, 'projectsCountSuffix')}</span>
+      <span class="count-tag"><span class="mono">{loading ? '—' : projects.length}</span> {t($locale, 'projectsCountSuffix')}</span>
     </div>
     <p class="desc">{t($locale, 'factoryQueueDesc')}</p>
 
@@ -76,7 +59,7 @@
     {:else}
       <table>
         <thead>
-          <tr><th>{t($locale, 'colProject')}</th><th>{t($locale, 'colDesignerName')}</th><th>{t($locale, 'colClient')}</th><th>{t($locale, 'colEstCost')}</th><th>{t($locale, 'colStatus')}</th><th>{t($locale, 'colSubmitted')}</th><th></th></tr>
+          <tr><th>{t($locale, 'colProject')}</th><th>{t($locale, 'colDesignerName')}</th><th>{t($locale, 'colClient')}</th><th class="col-center">{t($locale, 'colEstCost')}</th><th class="col-center">{t($locale, 'colStatus')}</th><th class="col-center">{t($locale, 'colSubmitted')}</th></tr>
         </thead>
         <tbody>
           {#each projects as proj}
@@ -85,13 +68,8 @@
               <td>{proj.designer_name || '—'}</td>
               <td>{proj.client || '—'}</td>
               <td class="mono">${fmt(proj.total_cost)}</td>
-              <td><StatusBadge status={proj.status} userRole="factory" locale={$locale} /></td>
-              <td class="muted">{formatDate(proj.created_at)}</td>
-              <td>
-                <button class="btn-finish" on:click|stopPropagation={() => markFinished(proj)} disabled={updatingId === proj.id}>
-                  {t($locale, 'markFinishedAction')}
-                </button>
-              </td>
+              <td class="col-center"><StatusBadge status={proj.status} userRole="factory" locale={$locale} /></td>
+              <td class="muted mono">{formatDate(proj.created_at)}</td>
             </tr>
           {/each}
         </tbody>
@@ -107,7 +85,7 @@
     margin-bottom: 4px;
   }
   .eyebrow {
-    font-family: var(--font-mono);
+    font-weight: 700;
     font-size: 11px;
     color: var(--steel-2);
     letter-spacing: 1px;
@@ -132,7 +110,6 @@
     font-weight: 900;
   }
   .count-tag {
-    font-family: var(--font-mono);
     font-size: 11px;
     font-weight: 700;
     background: var(--paper);
@@ -160,10 +137,9 @@
     font-size: 13px;
   }
   th {
-    text-align: right;
+    text-align: center;
     font-size: 10.5px;
     color: var(--steel-2);
-    font-family: var(--font-mono);
     letter-spacing: 0.4px;
     text-transform: uppercase;
     padding: 10px 18px;
@@ -172,7 +148,7 @@
     font-weight: 600;
   }
   td {
-    text-align: start;
+    text-align: center;
     padding: 13px 18px;
     border-bottom: 1px solid var(--border);
   }
@@ -183,32 +159,16 @@
     cursor: pointer;
   }
   .clickable-row:hover td {
-    background: var(--paper);
+    background: var(--card-hover);
   }
   .name {
     font-weight: 700;
   }
   .mono {
-    font-family: var(--font-mono);
     font-weight: 700;
   }
   .muted {
     color: var(--ink-soft);
     font-size: 12px;
-  }
-  .btn-finish {
-    background: var(--success, #3f9463);
-    color: #fff;
-    border: none;
-    padding: 5px 10px;
-    border-radius: 6px;
-    font-size: 12px;
-    font-weight: 700;
-    cursor: pointer;
-    white-space: nowrap;
-  }
-  .btn-finish:disabled {
-    opacity: 0.6;
-    cursor: not-allowed;
   }
 </style>

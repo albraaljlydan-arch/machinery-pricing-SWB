@@ -10,6 +10,7 @@
   import { toast } from '$lib/stores/toast';
   import { locale } from '$lib/stores/locale';
   import { t } from '$lib/i18n/dict';
+  import { formatCount as fmt } from '$lib/utils';
 
   interface ProjectRow {
     id: string;
@@ -87,9 +88,6 @@
     });
   }
 
-  function fmt(n: number) {
-    return Number(n || 0).toLocaleString('en-US', { maximumFractionDigits: 0 });
-  }
 </script>
 
 <section>
@@ -99,7 +97,7 @@
 
   <div class="panel">
     <div class="panel-head">
-      <span class="count-tag mono">{loading ? '—' : projects.length} {t($locale, 'projectsCountSuffix')}</span>
+      <span class="count-tag"><span class="mono">{loading ? '—' : projects.length}</span> {t($locale, 'projectsCountSuffix')}</span>
     </div>
 
     {#if loading}
@@ -108,35 +106,47 @@
       <div class="empty">{t($locale, 'noProjectsYet')}</div>
     {:else}
       <table>
-        <thead><tr><th>{t($locale, 'colProject')}</th><th>{t($locale, 'colClient')}</th><th>{t($locale, 'colCost')}</th><th>{t($locale, 'colStatus')}</th><th>{t($locale, 'colCreated')}</th><th></th></tr></thead>
+        <thead><tr><th>{t($locale, 'colProject')}</th><th>{t($locale, 'colClient')}</th><th class="col-center">{t($locale, 'colCost')}</th><th class="col-center">{t($locale, 'colStatus')}</th><th class="col-center">{t($locale, 'colCreated')}</th><th class="col-actions"></th></tr></thead>
         <tbody>
           {#each projects as proj}
             {@const isUntitled = proj.project_name.trim().toLowerCase().startsWith('untitled project')}
-            <tr>
+            <!-- The whole row opens the project, the way every other role's
+                 list already worked. The Designer was the odd one out: it
+                 alone needed you to hit a small "Open" link, which is now
+                 gone. The delete button stops propagation so it still only
+                 deletes. -->
+            <tr class="clickable-row" on:click={() => goto(`/designer/${proj.id}`)}>
               <td class="name" class:untitled={isUntitled}>
                 {proj.project_name}
                 {#if isUntitled}<span class="untitled-tag">{t($locale, 'needsNameTag')}</span>{/if}
               </td>
               <td>{proj.client || '—'}</td>
               <td class="price mono">${fmt(proj.total_cost)}</td>
-              <td><StatusBadge status={proj.status} userRole="designer" locale={$locale} /></td>
-              <td class="muted">{formatDate(proj.created_at)}</td>
-              <td class="actions">
-                <a class="btn-open" href="/designer/{proj.id}">{t($locale, 'openAction')}</a>
-                {#if canDelete(proj)}
-                  <button class="btn-del" on:click={() => deleteProject(proj)} disabled={deletingId === proj.id} title={t($locale, 'deleteProjectTitle')} aria-label={t($locale, 'deleteProjectTitle')}>
-                    {#if deletingId === proj.id}
-                      …
-                    {:else}
-                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                        <path d="M4 7h16" />
-                        <path d="M9 7V4.5A1.5 1.5 0 0 1 10.5 3h3A1.5 1.5 0 0 1 15 4.5V7" />
-                        <path d="M6 7l1 13.5A2 2 0 0 0 9 22h6a2 2 0 0 0 2-1.5L18 7" />
-                        <path d="M10 11v6M14 11v6" />
-                      </svg>
-                    {/if}
-                  </button>
-                {/if}
+              <td class="col-center"><StatusBadge status={proj.status} userRole="designer" locale={$locale} /></td>
+              <td class="muted mono">{formatDate(proj.created_at)}</td>
+              <td class="col-actions">
+                <div>
+                  {#if canDelete(proj)}
+                    <button
+                      class="btn-del"
+                      on:click|stopPropagation={() => deleteProject(proj)}
+                      disabled={deletingId === proj.id}
+                      title={t($locale, 'deleteProjectTitle')}
+                      aria-label={t($locale, 'deleteProjectTitle')}
+                    >
+                      {#if deletingId === proj.id}
+                        …
+                      {:else}
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                          <path d="M4 7h16" />
+                          <path d="M9 7V4.5A1.5 1.5 0 0 1 10.5 3h3A1.5 1.5 0 0 1 15 4.5V7" />
+                          <path d="M6 7l1 13.5A2 2 0 0 0 9 22h6a2 2 0 0 0 2-1.5L18 7" />
+                          <path d="M10 11v6M14 11v6" />
+                        </svg>
+                      {/if}
+                    </button>
+                  {/if}
+                </div>
               </td>
             </tr>
           {/each}
@@ -180,7 +190,6 @@
     border-bottom: 1px solid var(--border);
   }
   .count-tag {
-    font-family: var(--font-mono);
     font-size: 11px;
     font-weight: 700;
     background: var(--paper);
@@ -201,19 +210,18 @@
     font-size: 13px;
   }
   th {
-    text-align: right;
+    text-align: center;
     font-size: 10.5px;
     color: var(--steel-2);
-    font-family: var(--font-mono);
     letter-spacing: 0.4px;
     text-transform: uppercase;
     padding: 10px 18px;
     background: var(--paper);
     border-bottom: 1px solid var(--border);
-    font-weight: 600;
+    font-weight: 700;
   }
   td {
-    text-align: start;
+    text-align: center;
     padding: 13px 18px;
     border-bottom: 1px solid var(--border);
   }
@@ -224,15 +232,15 @@
     font-weight: 700;
   }
   .name.untitled {
-    color: #94a3b8;
+    color: var(--steel-2);
     font-weight: 500;
     font-style: italic;
   }
   .untitled-tag {
     display: inline-block;
     margin-inline-start: 8px;
-    background: #f1f5f9;
-    color: #94a3b8;
+    background: var(--paper);
+    color: var(--steel-2);
     font-size: 10.5px;
     font-weight: 700;
     font-style: normal;
@@ -241,26 +249,19 @@
     vertical-align: middle;
   }
   .price {
-    font-family: var(--font-mono);
+    font-family: var(--font-num);
+    font-variant-numeric: tabular-nums;
     font-weight: 700;
   }
   .muted {
     color: var(--ink-soft);
     font-size: 12.5px;
   }
-  .btn-open {
-    background: var(--navy-3);
-    color: #fff;
-    padding: 6px 14px;
-    border-radius: 6px;
-    font-size: 13px;
-    font-weight: 700;
+  .clickable-row {
+    cursor: pointer;
   }
-  .actions {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    white-space: nowrap;
+  .clickable-row:hover td {
+    background: var(--card-hover);
   }
   .btn-del {
     background: var(--danger-bg, #fbe2dc);

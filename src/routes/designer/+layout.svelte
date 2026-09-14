@@ -1,25 +1,41 @@
 <script lang="ts">
-  import { onMount } from 'svelte';
+  import { onMount, onDestroy } from 'svelte';
   import { page } from '$app/stores';
   import { supabase } from '$lib/supabaseClient';
   import { auth } from '$lib/stores/auth';
   import { locale } from '$lib/stores/locale';
   import { t } from '$lib/i18n/dict';
+  import { subscribeToTable } from '$lib/realtime';
   import AppShell from '$lib/components/AppShell.svelte';
   import type { NavGroup } from '$lib/components/navTypes';
 
   let pendingCount = 0;
   let rejectedCount = 0;
+  let assignedRequestsCount = 0;
 
-  onMount(async () => {
+  async function loadCounts() {
     const userId = $auth.session?.user?.id;
     if (!userId) return;
-    const { data, error } = await supabase.from('projects').select('status').eq('user_id', userId);
+    const [{ data, error }, { data: requests, error: reqError }] = await Promise.all([
+      supabase.from('projects').select('status').eq('user_id', userId),
+      supabase.from('customer_requests').select('id').eq('assigned_designer_id', userId).eq('status', 'Assigned'),
+    ]);
     if (!error && data) {
       pendingCount = data.filter((p) => p.status === 'Pending Admin').length;
       rejectedCount = data.filter((p) => p.status === 'Rejected').length;
     }
+    if (!reqError && requests) assignedRequestsCount = requests.length;
+  }
+
+  // Badge counts used to be fetched once on mount and stay frozen until a
+  // manual refresh — now re-run the same query whenever the underlying
+  // table actually changes, so the sidebar number is always live.
+  let unsubscribers: (() => void)[] = [];
+  onMount(() => {
+    loadCounts();
+    unsubscribers = [subscribeToTable('projects', loadCounts), subscribeToTable('customer_requests', loadCounts)];
   });
+  onDestroy(() => unsubscribers.forEach((unsub) => unsub()));
 
   // Same shell as Admin, deliberately much shorter — a Designer only ever
   // needs their own projects and the read-only material price list, none
@@ -36,12 +52,16 @@
         { href: '/designer?status=Rejected', label: t($locale, 'rejectedNeedsFix'), icon: 'x' as const, badgeCount: rejectedCount },
       ],
     },
+    {
+      section: t($locale, 'customerRequestsNav'),
+      items: [{ href: '/designer/requests', label: t($locale, 'assignedRequestsNav'), icon: 'grid' as const, badgeCount: assignedRequestsCount }],
+    },
     { section: t($locale, 'referenceSection'), items: [{ href: '/designer/material-prices', label: t($locale, 'settingsAndPrices'), icon: 'tag' as const }] },
   ] satisfies NavGroup[];
 
-  $: pageTitle = $page.url.pathname === '/designer/material-prices' ? t($locale, 'settingsAndPrices') : t($locale, 'myProjects');
+  $: pageTitle = $page.url.pathname === '/designer/material-prices' ? t($locale, 'settingsAndPrices') : $page.url.pathname === '/designer/requests' ? t($locale, 'assignedRequestsNav') : t($locale, 'myProjects');
 </script>
 
-<AppShell {navGroups} {pageTitle} roleLabel={t($locale, 'designer')}>
+<AppShell {navGroups} {pageTitle}>
   <slot />
 </AppShell>

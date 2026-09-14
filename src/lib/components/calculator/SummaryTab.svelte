@@ -1,7 +1,10 @@
 <script lang="ts">
   import './shared-tab.css';
   import type { SheetRow, ProfileRow, MillRow, PipeRow, SquareRow, OrderRow, OperationRow } from '$lib/types';
-  import { exportReportToPdf } from '$lib/calc/exportPdf';
+  import { exportReportToPdf, NothingToExportError } from '$lib/calc/exportPdf';
+  import { toast } from '$lib/stores/toast';
+  import { locale } from '$lib/stores/locale';
+  import { t } from '$lib/i18n/dict';
   import FullReport from './FullReport.svelte';
 
   // This tab IS the preview of exactly what gets exported — the Designer
@@ -39,7 +42,8 @@
       const safeName = (projectName || 'Report').replace(/[^a-z0-9_-]+/gi, '_');
       await exportReportToPdf(reportEl, `${safeName}.pdf`);
     } catch (e) {
-      alert('❌ PDF export failed: ' + (e instanceof Error ? e.message : String(e)));
+      const msg = e instanceof NothingToExportError ? t($locale, 'noDataToExport') : t($locale, 'pdfExportFailedPrefix') + (e instanceof Error ? e.message : String(e));
+      toast.notify(msg, 'error');
     } finally {
       isExporting = false;
     }
@@ -67,8 +71,15 @@
        separate totals bar is repeated here. -->
   <div class="report-frame">
     <div bind:this={reportEl}>
+      <!-- requireManualPrice tracks `mode` here, which it deliberately does
+           NOT do inside FullReport itself: Admin's review screen renders the
+           DESIGNER's rows with mode="procurement" just to get the discount
+           columns. This tab, by contrast, only ever sits inside
+           Procurement's own calculator, so procurement mode really does mean
+           "every price has to be typed in". -->
       <FullReport
         {mode}
+        requireManualPrice={mode === 'procurement'}
         {projectName}
         engineer={designerName}
         client={clientName}
@@ -90,14 +101,14 @@
 <style>
   .by-line {
     font-size: 11.5px;
-    color: #94a3b8;
+    color: var(--ink-soft);
     font-weight: 500;
     margin-inline-start: 10px;
   }
   .preview-note {
-    background: #eff6ff;
-    border-bottom: 1px solid #dbeafe;
-    color: #1e40af;
+    background: var(--info-bg);
+    border-bottom: 1px solid var(--info-border);
+    color: var(--info-ink);
     font-size: 12.5px;
     font-weight: 600;
     padding: 8px 16px;
@@ -106,13 +117,19 @@
   .report-frame {
     max-height: 640px;
     overflow-y: auto;
-    background: #f1f5f9;
+    background: var(--paper);
     padding: 16px;
-    border-bottom: 1px solid #e2e8f0;
+    border-bottom: 1px solid var(--border);
   }
+  /* The 860px clamp that used to be here is the A4 content width, and it was
+     being applied to the ON-SCREEN preview as well as to the export. On a wide
+     monitor that threw away most of the available room and squeezed the
+     twelve-column material tables until the headers ran into each other.
+     The preview is full width now; A4 is imposed only on the copy
+     html2canvas rasterises — see PDF_CONTENT_PX in calc/exportPdf.ts — so the
+     PDF is unchanged and the screen is readable. */
   .report-frame > div {
-    max-width: 860px;
-    margin: 0 auto;
+    width: 100%;
     box-shadow: 0 4px 16px rgba(15, 23, 42, 0.12);
   }
 </style>

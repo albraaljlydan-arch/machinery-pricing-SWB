@@ -22,6 +22,10 @@
   $: customCols = fieldConfig.customColumns;
 
   $: showManualPrice = mode === 'procurement';
+  // Procurement's file must start with a genuinely EMPTY $/kg — no falling
+  // back to the catalogue price, which is the designer's estimate. See
+  // RowPricingOptions in calc/pricing.ts.
+  $: requireManualPrice = mode === 'procurement';
   $: showDiscount = mode === 'procurement';
   $: columns = withCustomColumns(
     withLabelOverrides(withDiscount(PROFILE_COLUMNS, showDiscount), mode === 'designer' ? fieldConfig.labelOverrides : undefined),
@@ -41,8 +45,8 @@
     updateCustomField(rowId, c.id, value === '__custom__' ? '' : value);
   }
 
-  function effective(row: ProfileRow) {
-    return applyRowPricing(computeProfileRow(row, row.type === 'standard' ? 'wholesale' : 'retail'), row);
+  function effective(row: ProfileRow, needsManualPrice = requireManualPrice) {
+    return applyRowPricing(computeProfileRow(row, row.type === 'standard' ? 'wholesale' : 'retail'), row, { requireManualPrice: needsManualPrice });
   }
   function sectionsFor(t: ProfileRow['profileType']) {
     return t === 'square' ? SQUARE_SECTIONS : t === 'rectangular' ? RECT_SECTIONS : [];
@@ -89,16 +93,19 @@
     return row.type === 'standard';
   }
 
+  // `requireManualPrice` is passed explicitly rather than read off the
+  // closure so this stays a tracked dependency of the reactive statement.
   $: totals = rows.reduce(
     (acc, row) => {
       if (getProfileError(row)) return acc;
-      const eff = effective(row);
+      const eff = effective(row, requireManualPrice);
       acc.weight += eff.totalWeight;
       acc.discount += eff.discount;
       acc.total += eff.finalTotal;
+      if (eff.unpriced) acc.unpriced += 1;
       return acc;
     },
-    { weight: 0, discount: 0, total: 0 }
+    { weight: 0, discount: 0, total: 0, unpriced: 0 }
   );
 </script>
 
@@ -223,7 +230,7 @@
                 {/if}
               </td>
             {/each}
-            <td class="num total">{err ? '—' : `$${formatNum(eff.finalTotal, 2)}`}</td>
+            <td class="num total" class:unpriced={eff.unpriced}>{err || eff.unpriced ? '—' : `$${formatNum(eff.finalTotal, 2)}`}</td>
             <td class="text-center"><button class="btn-del" on:click={() => removeRow(row.id)}>✕</button></td>
           </tr>
           {#if flagged?.has(row.id)}
@@ -238,6 +245,9 @@
     <div><span class="lbl">Total Profile Weight</span><span class="val">{formatNum(totals.weight, 2)} kg</span></div>
     {#if showDiscount}
       <div><span class="lbl">Total Discount</span><span class="val discount">-${formatNum(totals.discount, 2)}</span></div>
+    {/if}
+    {#if totals.unpriced > 0}
+      <div><span class="lbl">Awaiting Price</span><span class="val warn">{totals.unpriced} row{totals.unpriced === 1 ? '' : 's'}</span></div>
     {/if}
     <div><span class="lbl">Final Total Price</span><span class="val price">${formatNum(totals.total, 2)}</span></div>
   </div>

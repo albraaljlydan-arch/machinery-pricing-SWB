@@ -115,10 +115,11 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    font-family: var(--font-mono);
+    font-family: var(--font-num);
+    font-variant-numeric: tabular-nums;
     font-size: 12px;
     font-weight: 700;
-    color: #f2a93b;
+    color: var(--amber);
   }
   .toast-undo {
     background: var(--amber, #f2a93b);

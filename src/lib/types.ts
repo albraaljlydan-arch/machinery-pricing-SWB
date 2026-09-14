@@ -165,7 +165,12 @@ export interface InvoiceRow {
 //  USER ROLES & PROJECT TYPES
 // ============================================================================
 
-export type UserRole = 'designer' | 'admin' | 'factory' | 'procurement' | 'accounting' | 'developer';
+/** Every value the profiles.role column may hold. 'followup' (the Follow-up
+ *  Engineer who logs machine operations) was missing here even though the
+ *  role exists in the database, has its own /followup dashboard, and is what
+ *  the root layout's `/${userRole}` redirect resolves to for those accounts —
+ *  so it type-checked as unreachable while being perfectly reachable. */
+export type UserRole = 'designer' | 'admin' | 'factory' | 'procurement' | 'accounting' | 'followup' | 'developer' | 'customer';
 
 export type ProjectStatus = 'Draft' | 'Pending Admin' | 'In Production' | 'Complete Production' | 'Completed' | 'Rejected';
 
@@ -192,6 +197,40 @@ export interface ReviewFlags {
   processing?: RowFlag[];
 }
 
+// ============================================================================
+//  PROCUREMENT'S OWN FILE
+// ============================================================================
+
+/** Procurement's file — the REAL purchase, at real invoice prices.
+ *
+ *  Deliberately a separate set of rows from the designer's, not an edit of
+ *  them: the designer's numbers are an *estimate* (catalogue $/kg from the
+ *  price table), and Procurement's job is to replace them with what was
+ *  actually paid. If both lived in the same rows, the first Procurement
+ *  save would erase the estimate forever — and estimate-vs-actual is
+ *  exactly what makes this file worth keeping.
+ *
+ *  It's nested inside ProjectData (rather than a new `projects` column) for
+ *  the same reason `reviewFlags` is: it travels with the project and
+ *  survives round-trips to Supabase without a migration.
+ *
+ *  Seeded from the designer's specs with every money field cleared — see
+ *  calc/procurementSeed.ts. */
+export interface ProcurementData {
+  sheetRows: SheetRow[];
+  profileRows: ProfileRow[];
+  millRows: MillRow[];
+  pipeRows: PipeRow[];
+  squareRows: SquareRow[];
+  orderRows: OrderRow[];
+  operations: OperationRow[];
+  invoiceRows: InvoiceRow[];
+  /** When Procurement first opened this project. Its presence is what
+   *  distinguishes "never opened" (seed it now) from "opened, and its rows
+   *  are empty because Procurement emptied them on purpose". */
+  seededAt: string;
+}
+
 export interface ProjectData {
   projectName: string;
   client: string;
@@ -205,6 +244,52 @@ export interface ProjectData {
   operations: OperationRow[];
   /** Set by Admin on Reject; read (highlighted) by the Designer, cleared on Approve. */
   reviewFlags?: ReviewFlags;
+  /** Procurement's separate real-cost file; absent until Procurement first
+   *  opens the project. The seven row arrays above stay the designer's
+   *  estimate untouched. */
+  procurement?: ProcurementData;
+  /** LEGACY: where Procurement's invoices lived before `procurement` existed,
+   *  back when Procurement edited the designer's rows in place. Read once,
+   *  when seeding a purchase file for a project that predates the split, so
+   *  those invoices (and their Drive links) aren't lost. Carried through
+   *  saves untouched; never written fresh. */
+  invoiceRows?: InvoiceRow[];
+}
+
+// ============================================================================
+//  PROCUREMENT PURCHASE REQUESTS — daily material pick-lists, approved by
+//  Factory before those materials count as secured. A parallel log, exactly
+//  like `factory_operations` for the Follow-up Engineer: it never changes
+//  `projects.status`. Lives in its own `purchase_requests` table (not inside
+//  ProjectData) because, unlike reviewFlags/procurement, every past day's
+//  submission must be kept, not just the latest one.
+// ============================================================================
+
+export type PurchaseApprovalStatus = 'pending' | 'approved' | 'rejected';
+
+/** Same shape as ReviewFlags/RowFlag (id + free text) — here the text is a
+ *  Procurement-written NOTE, not a rejection reason. Only sheets/profiles/
+ *  mills/pipes/squares/orders ever have entries; processing has no
+ *  `quantity` field and never participates in a purchase request. */
+export type PurchaseRowFlags = Partial<Record<'sheets' | 'profiles' | 'mills' | 'pipes' | 'squares' | 'orders', RowFlag[]>>;
+
+export interface PurchaseRequestRow {
+  id: string;
+  project_id: string;
+  project_name_snapshot: string;
+  work_date: string; // yyyy-mm-dd
+  requested_by: string;
+  requested_row_ids: PurchaseRowFlags;
+  pieces_today: number;
+  pieces_cumulative: number;
+  total_pieces: number;
+  daily_percent: number;
+  cumulative_percent: number;
+  approval_status: PurchaseApprovalStatus;
+  /** Set by Factory when rejecting. Shown back to Procurement only — never
+   *  to Admin. */
+  rejection_note: string | null;
+  created_at: string;
 }
 
 export interface Project {
@@ -216,4 +301,37 @@ export interface Project {
   status: ProjectStatus;
   created_at: string;
   project_data?: ProjectData;
+}
+
+// ============================================================================
+//  CUSTOMER INTAKE — a customer's initial machine request, manually matched
+//  by Factory to a designer, then a text chat between the two. Lives in its
+//  own tables (not `projects`) because a request may never become a real
+//  production project, and because a customer account has no business
+//  reading/writing `projects` at all.
+// ============================================================================
+
+export type CustomerRequestStatus = 'New' | 'Assigned' | 'Rejected' | 'Closed';
+
+export interface CustomerRequest {
+  id: string;
+  customer_id: string;
+  title: string;
+  description: string;
+  /** Free-form initial specs (machine type, quantity, dimensions/capacity, etc.) — kept as JSON rather than fixed columns since the useful fields vary by machine type. */
+  spec_data: Record<string, string | number>;
+  status: CustomerRequestStatus;
+  assigned_designer_id?: string | null;
+  assigned_by?: string | null;
+  assigned_at?: string | null;
+  factory_note?: string | null;
+  created_at: string;
+}
+
+export interface ChatMessage {
+  id: string;
+  request_id: string;
+  sender_id: string;
+  body: string;
+  created_at: string;
 }

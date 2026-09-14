@@ -67,7 +67,8 @@
     padding: 8px 10px;
     border: 1px solid var(--border);
     border-radius: 8px;
-    font-family: var(--font-mono);
+    font-family: var(--font-num);
+    font-variant-numeric: tabular-nums;
     font-size: 14px;
     text-align: center;
   }

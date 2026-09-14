@@ -234,6 +234,30 @@ export const formatNum = (value: unknown, maxDecimals: number = 2): string => {
   return parseFloat(fixed).toString();
 };
 
+/**
+ * Dashboard number formatter — thousands-separated, no decimals.
+ *
+ * The split from formatNum() above is intentional and is the rule the whole
+ * app follows: INSIDE the calculator, figures are grouped tightly with no
+ * thousands separator (formatNum), because the tables are dense and every
+ * column is already aligned. OUTSIDE it, on the dashboards, totals are read
+ * at a glance rather than compared column-by-column, so they get the
+ * separator.
+ *
+ * 'en-US' pins Western digits and the "," group separator regardless of the
+ * UI language — Arabic locales otherwise switch to Arabic-Indic numerals
+ * (٠١٢٣) and an Arabic thousands mark, which would clash with every other
+ * figure on screen (see formatDate for the same reasoning).
+ *
+ * Replaces seven identical private copies of this function, one of which
+ * (admin/+page.svelte) called .toLocaleString() straight on a possibly
+ * null total_cost and threw.
+ */
+export const formatCount = (value: unknown, maxDecimals: number = 0): string => {
+  const num = Number(value);
+  return (Number.isFinite(num) ? num : 0).toLocaleString('en-US', { maximumFractionDigits: maxDecimals });
+};
+
 // ============================================================
 //  Densities in g/cm³  (multiplied by 1000 → kg/m³ in formulas)
 //  All material IDs from constants.ts are covered.

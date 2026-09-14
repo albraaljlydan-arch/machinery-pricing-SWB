@@ -40,42 +40,6 @@
     }
   }
 
-  // ---- Add user modal ----
-  let showAddModal = false;
-  let newFullName = '';
-  let newEmail = '';
-  let newPassword = '';
-  let newRole: (typeof ROLES)[number] = 'designer';
-  let creating = false;
-
-  function openAddModal() {
-    showAddModal = true;
-    newFullName = '';
-    newEmail = '';
-    newPassword = '';
-    newRole = 'designer';
-  }
-  function closeAddModal() {
-    showAddModal = false;
-  }
-
-  async function createUser() {
-    if (!newFullName.trim() || !newEmail.trim() || newPassword.length < 6) return;
-    creating = true;
-    const { data, error } = await supabase.functions.invoke('create-user', {
-      body: { full_name: newFullName.trim(), email: newEmail.trim(), password: newPassword, role: newRole },
-    });
-    creating = false;
-    const fnError = error || (data as any)?.error;
-    if (fnError) {
-      toast.notify(t($locale, 'userCreateErrorPrefix') + (typeof fnError === 'string' ? fnError : fnError.message), 'error');
-    } else {
-      toast.notify(t($locale, 'userCreatedSuccess'), 'success');
-      showAddModal = false;
-      loadUsers();
-    }
-  }
-
   // ---- Edit user modal ----
   let showEditModal = false;
   let editingUser: UserRow | null = null;
@@ -124,10 +88,6 @@
 </script>
 
 <div class="panel">
-  <div class="panel-head">
-    <button class="btn-add" on:click={openAddModal}>{t($locale, 'addUserBtn')}</button>
-  </div>
-
   <input class="search" type="text" bind:value={search} placeholder={t($locale, 'searchUsersPlaceholder')} dir="auto" />
 
   {#if loading}
@@ -140,7 +100,7 @@
         <tr>
           <th>{t($locale, 'colFullName')}</th>
           <th>{t($locale, 'colRole')}</th>
-          <th></th>
+          <th class="col-actions"></th>
         </tr>
       </thead>
       <tbody>
@@ -152,8 +112,8 @@
                 {#each ROLES as r}<option value={r}>{t($locale, r)}</option>{/each}
               </select>
             </td>
-            <td>
-              <button class="btn-edit" on:click={() => openEditModal(u)}>{t($locale, 'editUserAction')}</button>
+            <td class="col-actions">
+              <div><button class="btn-edit" on:click={() => openEditModal(u)}>{t($locale, 'editUserAction')}</button></div>
             </td>
           </tr>
         {/each}
@@ -161,39 +121,6 @@
     </table>
   {/if}
 </div>
-
-{#if showAddModal}
-  <!-- svelte-ignore a11y_click_events_have_key_events -->
-  <div class="modal-backdrop" on:click={closeAddModal} on:keydown={(e) => e.key === 'Escape' && closeAddModal()} role="presentation">
-    <div class="modal" on:click|stopPropagation role="dialog" aria-label={t($locale, 'addUserTitle')} tabindex="-1">
-      <h3>{t($locale, 'addUserTitle')}</h3>
-      <label>
-        {t($locale, 'fullNamePlaceholder')}
-        <input type="text" bind:value={newFullName} dir="auto" />
-      </label>
-      <label>
-        {t($locale, 'emailPlaceholder')}
-        <input type="email" bind:value={newEmail} dir="ltr" />
-      </label>
-      <label>
-        {t($locale, 'tempPasswordPlaceholder')}
-        <input type="text" bind:value={newPassword} dir="ltr" />
-      </label>
-      <label>
-        {t($locale, 'colRole')}
-        <select bind:value={newRole}>
-          {#each ROLES as r}<option value={r}>{t($locale, r)}</option>{/each}
-        </select>
-      </label>
-      <div class="modal-actions">
-        <button class="btn-add" on:click={createUser} disabled={creating || !newFullName.trim() || !newEmail.trim() || newPassword.length < 6}>
-          {creating ? t($locale, 'savingGeneric') : t($locale, 'createUserBtn')}
-        </button>
-        <button class="btn-cancel" on:click={closeAddModal}>{t($locale, 'cancelBtn')}</button>
-      </div>
-    </div>
-  </div>
-{/if}
 
 {#if showEditModal && editingUser}
   <!-- svelte-ignore a11y_click_events_have_key_events -->
@@ -281,7 +208,7 @@
     font-size: 13px;
   }
   th {
-    text-align: start;
+    text-align: center;
     font-size: 10.5px;
     color: var(--steel-2);
     text-transform: uppercase;
@@ -291,7 +218,7 @@
     font-weight: 600;
   }
   td {
-    text-align: start;
+    text-align: center;
     padding: 10px 12px;
     border-bottom: 1px solid var(--border);
   }

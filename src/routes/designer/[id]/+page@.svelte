@@ -15,6 +15,10 @@
   import { applyRowPricing } from '$lib/calc/pricing';
   import { toast } from '$lib/stores/toast';
   import { notifyRole } from '$lib/calc/notify';
+  import { encodeNotification } from '$lib/i18n/notifications';
+  import { locale } from '$lib/stores/locale';
+  import { t, statusLabel } from '$lib/i18n/dict';
+  import { safetyFactor } from '$lib/stores/safetyFactor';
 
   const getMaterialName = (id: string) => MATERIALS.find((m) => m.id === id)?.nameEn ?? id;
 
@@ -41,7 +45,7 @@
     loading = true;
     const { data, error } = await supabase.from('projects').select('*').eq('id', projectId).single();
     if (error || !data) {
-      toast.notify('Could not load the project.', 'error');
+      toast.notify(t($locale, 'couldNotLoadProject'), 'error');
       goto('/designer');
       return;
     }
@@ -65,6 +69,7 @@
     // instant the Designer touched anything, because the plain save just
     // replaced project_data wholesale without this field in it at all.
     savedReviewFlags = d.reviewFlags;
+    projectSafetyFactor = Number(d.safetyFactor) || 0;
     loading = false;
   }
 
@@ -72,11 +77,26 @@
 
   $: flagCount = countFlags(reviewFlagSets);
 
+  // The Safety Factor is a dashboard-level setting living in the Designer's
+  // OWN browser (localStorage, see stores/safetyFactor.ts). buildProjectData
+  // used to write a hardcoded `safetyFactor: 0`, so it was never stored with
+  // the project at all: the margin existed only on the Designer's screen and
+  // vanished the moment anyone else opened the file. Admin, Factory and
+  // Procurement were all reading a final price with no margin in it.
+  //
+  // It is now captured INTO the project. While the project is still the
+  // Designer's to edit, the live setting wins so changes take effect; once it
+  // has left their hands the stored value is frozen and simply carried
+  // through every later save, so downstream roles see the exact margin the
+  // Designer submitted with — read-only, by construction.
+  let projectSafetyFactor = 0;
+  $: effectiveSafetyFactor = canEdit ? $safetyFactor : projectSafetyFactor;
+
   function buildProjectData() {
     return {
       projectName,
       client: clientName,
-      safetyFactor: 0,
+      safetyFactor: effectiveSafetyFactor,
       sheetRows,
       profileRows,
       millRows,
@@ -108,11 +128,11 @@
       .eq('id', projectId);
     saving = false;
     if (error) {
-      toast.notify('❌ Error saving: ' + error.message, 'error');
+      toast.notify(t($locale, 'errorSavingPrefix') + error.message, 'error');
     } else {
       projectName = finalName;
-      if (!trimmed) toast.notify(`💾 Saved as "${finalName}" — no name was given yet; you can rename it anytime before submitting.`, 'success', 6000);
-      else toast.notify('💾 Draft saved.', 'success');
+      if (!trimmed) toast.notify(t($locale, 'savedAsNameTemplate').replace('{name}', finalName), 'success', 6000);
+      else toast.notify(t($locale, 'draftSavedToast'), 'success');
     }
   }
 
@@ -136,11 +156,11 @@
       .update({ project_name: finalName, client: clientName, total_cost: totals.totalPrice, project_data: buildProjectData() })
       .eq('id', projectId);
     if (error) {
-      toast.notify('❌ Auto-save error: ' + error.message, 'error');
+      toast.notify(t($locale, 'autoSaveErrorPrefix') + error.message, 'error');
     } else if (!trimmed) {
-      toast.notify(`💾 Saved as "${finalName}" — no name was given yet; you can rename it anytime.`, 'success', 6000);
+      toast.notify(t($locale, 'savedAsNameShortTemplate').replace('{name}', finalName), 'success', 6000);
     } else {
-      toast.notify('💾 Your changes were saved as a draft before leaving.', 'success');
+      toast.notify(t($locale, 'draftSavedBeforeLeaving'), 'success');
     }
     goto('/designer');
   }
@@ -148,10 +168,10 @@
   function submitToAdmin() {
     const trimmed = projectName.trim();
     if (!trimmed || trimmed.toLowerCase().startsWith('untitled project')) {
-      toast.notify('⚠️ Please give the project a real name before submitting it to Admin.', 'error');
+      toast.notify(t($locale, 'needRealNameBeforeSubmit'), 'error');
       return;
     }
-    toast.confirmWithUndo('Submitting to Admin for review…', 3, async () => {
+    toast.confirmWithUndo(t($locale, 'submittingToAdminConfirm'), 3, async () => {
       submitting = true;
       const totals = computeGrandTotals({ sheets: sheetRows, profiles: profileRows, mills: millRows, pipes: pipeRows, squares: squareRows, orders: orderRows, operations });
       const { error } = await supabase
@@ -160,51 +180,59 @@
         .eq('id', projectId);
       submitting = false;
       if (error) {
-        toast.notify('❌ Error submitting: ' + error.message, 'error');
+        toast.notify(t($locale, 'errorSubmittingPrefix') + error.message, 'error');
       } else {
-        notifyRole('admin', `New project "${trimmed}" was submitted for review.`, `/admin/projects/${projectId}`);
-        notifyRole('developer', `New project "${trimmed}" was submitted for review.`, `/admin/projects/${projectId}`);
+        notifyRole('admin', encodeNotification('projectSubmitted', { name: trimmed }), `/admin/projects/${projectId}`);
+        notifyRole('developer', encodeNotification('projectSubmitted', { name: trimmed }), `/admin/projects/${projectId}`);
         goto('/designer');
       }
     });
   }
 </script>
 
-<div class="page" dir="ltr">
+<!-- The page chrome follows the dashboard's language and direction; only the
+     calculator inside keeps dir="ltr", because its tables are English by
+     design. -->
+<div class="page">
   <div class="topbar">
-    <button class="btn-back" on:click={handleBackToDashboard} disabled={leaving}>{leaving ? 'Saving…' : '← Back to Dashboard'}</button>
+    <button class="btn-back" on:click={handleBackToDashboard} disabled={leaving}>{leaving ? t($locale, 'savingGeneric') : t($locale, 'backToDashboard')}</button>
     {#if !canEdit}
-      <span class="readonly-note">🔒 Read-only — status is {status}</span>
+      <span class="readonly-note">{t($locale, 'readOnlyLockedTemplate').replace('{status}', statusLabel($locale, status))}</span>
     {/if}
     <div class="spacer"></div>
     {#if canEdit}
-      <button class="btn-save" on:click={saveDraft} disabled={saving}>{saving ? 'Saving…' : '💾 Save Draft'}</button>
-      <button class="btn-submit" on:click={submitToAdmin} disabled={submitting}>{submitting ? 'Sending…' : '🚀 Submit to Admin'}</button>
+      <button class="btn-save" on:click={saveDraft} disabled={saving}>{saving ? t($locale, 'savingGeneric') : t($locale, 'saveDraftAction')}</button>
+      <button class="btn-submit" on:click={submitToAdmin} disabled={submitting}>{submitting ? t($locale, 'submittingGeneric') : t($locale, 'submitToAdminAction')}</button>
     {/if}
   </div>
 
   {#if loading}
-    <p class="muted">Loading…</p>
+    <p class="muted">{t($locale, 'loading')}</p>
   {:else}
     {#if status === 'Rejected' && flagCount > 0}
-      <div class="reject-notice">🚫 Admin rejected this project — {flagCount} row(s) need fixing. Look for the red dot on the tab, then the highlighted row inside it.</div>
+      <div class="reject-notice">{t($locale, 'rejectNoticeTemplate').replace('{n}', String(flagCount))}</div>
     {/if}
 
-    <Calculator
-      mode="designer"
-      currentUserRole={$auth.userRole ?? 'designer'}
-      bind:sheetRows
-      bind:profileRows
-      bind:millRows
-      bind:pipeRows
-      bind:squareRows
-      bind:orderRows
-      bind:operations
-      bind:projectName
-      bind:clientName
-      {status}
-      reviewFlags={status === 'Rejected' ? reviewFlagSets : undefined}
-    />
+    <!-- Only the calculator itself is pinned LTR — its tables are English by
+         design. The chrome above follows the dashboard's direction. -->
+    <div dir="ltr">
+      <Calculator
+        mode="designer"
+        currentUserRole={$auth.userRole ?? 'designer'}
+        bind:sheetRows
+        bind:profileRows
+        bind:millRows
+        bind:pipeRows
+        bind:squareRows
+        bind:orderRows
+        bind:operations
+        bind:projectName
+        bind:clientName
+        {status}
+        safetyFactor={effectiveSafetyFactor}
+        reviewFlags={status === 'Rejected' ? reviewFlagSets : undefined}
+      />
+    </div>
   {/if}
 </div>
 
@@ -213,7 +241,7 @@
     max-width: 1400px;
     margin: 0 auto;
     padding: 20px 20px 60px;
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    font-family: var(--font-body);
   }
   .topbar {
     display: flex;

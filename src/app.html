@@ -5,8 +5,14 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <!-- Two families only. Inconsolata used to be loaded here for numeric
+       values, but it has no Arabic glyphs, so every Arabic label that wore
+       it fell back to an arbitrary system font (see tokens.css). Numbers now
+       use Inter's tabular figures, so the third download is gone too. Both
+       families load weight 800 because several headings ask for 900 and
+       would otherwise be synthesised into a smeared faux-bold. -->
   <link
-    href="https://fonts.googleapis.com/css2?family=Noto+Sans+Arabic:wght@400;500;600;700&family=Inter:wght@400;500;600;700&family=Inconsolata:wght@400;600;700&display=swap"
+    href="https://fonts.googleapis.com/css2?family=Noto+Sans+Arabic:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700;800&display=swap"
     rel="stylesheet"
   />
   %sveltekit.head%

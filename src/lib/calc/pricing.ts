@@ -35,13 +35,34 @@ export interface EffectivePricing extends ComputedBase {
   /** rawTotal − discount — what actually lands in the tab's Total ($) cell. */
   finalTotal: number;
   hasManualPrice: boolean;
+  /** Only ever true under `requireManualPrice`: nobody has typed a real
+   *  $/kg into this row yet, so it is worth $0 and its Total renders "—". */
+  unpriced: boolean;
 }
 
-export function applyRowPricing(computed: ComputedBase, row: RowWithPricing): EffectivePricing {
+export interface RowPricingOptions {
+  /** Procurement's real-cost file: a row counts as priced ONLY once someone
+   *  types a $/kg into it.
+   *
+   *  Without this, `computed.pricePerKg` silently falls back to the
+   *  catalogue price (getRowPricePerKg in utils.ts → the saved price table →
+   *  the MATERIALS constant) — which is precisely the designer's *estimate*,
+   *  the number Procurement exists to replace. An untouched row would then
+   *  show an empty $/kg box next to a confident-looking Total that nobody
+   *  ever entered.
+   *
+   *  With it, an untouched row is `unpriced`: $0, excluded from the totals,
+   *  and rendered as "—" so it's obvious at a glance what still needs a
+   *  real price. */
+  requireManualPrice?: boolean;
+}
+
+export function applyRowPricing(computed: ComputedBase, row: RowWithPricing, options: RowPricingOptions = {}): EffectivePricing {
   const hasManualPrice = !!row.manualPrice && row.manualPrice > 0;
-  const pricePerKg = hasManualPrice ? row.manualPrice! : computed.pricePerKg;
-  const rawTotal = hasManualPrice ? computed.totalWeight * row.manualPrice! : computed.totalPrice;
+  const unpriced = !!options.requireManualPrice && !hasManualPrice;
+  const pricePerKg = hasManualPrice ? row.manualPrice! : unpriced ? 0 : computed.pricePerKg;
+  const rawTotal = unpriced ? 0 : hasManualPrice ? computed.totalWeight * row.manualPrice! : computed.totalPrice;
   const discount = Math.min(Math.max(0, sanitizeNum(row.discount)), rawTotal);
   const finalTotal = rawTotal - discount;
-  return { ...computed, autoPricePerKg: computed.pricePerKg, pricePerKg, rawTotal, discount, finalTotal, hasManualPrice };
+  return { ...computed, autoPricePerKg: computed.pricePerKg, pricePerKg, rawTotal, discount, finalTotal, hasManualPrice, unpriced };
 }

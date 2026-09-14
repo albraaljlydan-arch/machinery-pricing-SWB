@@ -10,6 +10,10 @@
   import { flagsToSets, setsToFlags, countFlags, type FlagSet } from '$lib/calc/reviewFlags';
   import { formatNum } from '$lib/utils';
   import { notifyUser } from '$lib/calc/notify';
+  import { encodeNotification } from '$lib/i18n/notifications';
+  import { toast } from '$lib/stores/toast';
+  import { locale } from '$lib/stores/locale';
+  import { t, statusLabel } from '$lib/i18n/dict';
 
   $: projectId = $page.params.id;
 
@@ -28,7 +32,7 @@
     loading = true;
     const { data, error } = await supabase.from('projects_with_designer').select('*').eq('id', projectId).single();
     if (error || !data) {
-      alert('Could not load this project.');
+      toast.notify(t($locale, 'couldNotLoadProject'), 'error');
       goto('/admin/projects');
       return;
     }
@@ -62,16 +66,16 @@
       .update({ status: 'In Production', project_data: { ...pd, reviewFlags: undefined } })
       .eq('id', projectId);
     acting = false;
-    if (error) alert('❌ ' + error.message);
+    if (error) toast.notify(t($locale, 'entryActionErrorPrefix') + error.message, 'error');
     else {
-      if (project.user_id) notifyUser(project.user_id, `Your project "${project.project_name}" was approved and sent to the factory.`, `/designer/${projectId}`);
+      if (project.user_id) notifyUser(project.user_id, encodeNotification('projectApproved', { name: project.project_name }), `/designer/${projectId}`);
       goto('/admin/projects');
     }
   }
 
   async function handleReject() {
     if (flagCount === 0) {
-      alert('⚠️ Please tick at least one row above to mark what needs fixing before rejecting.');
+      toast.notify(t($locale, 'tickAtLeastOneRow'), 'error');
       return;
     }
     acting = true;
@@ -80,51 +84,58 @@
       .update({ status: 'Rejected', project_data: { ...pd, reviewFlags: setsToFlags(flagSets) } })
       .eq('id', projectId);
     acting = false;
-    if (error) alert('❌ ' + error.message);
+    if (error) toast.notify(t($locale, 'entryActionErrorPrefix') + error.message, 'error');
     else {
-      if (project.user_id) notifyUser(project.user_id, `Your project "${project.project_name}" was rejected — ${flagCount} row(s) need fixing.`, `/designer/${projectId}`);
+      if (project.user_id) notifyUser(project.user_id, encodeNotification('projectRejected', { name: project.project_name, count: flagCount }), `/designer/${projectId}`);
       goto('/admin/projects');
     }
   }
 </script>
 
-<div class="page" dir="ltr">
+<div class="page">
   {#if loading}
-    <p class="muted">Loading…</p>
+    <p class="muted">{t($locale, 'loading')}</p>
   {:else if !canReview}
-    <p class="muted">You don't have permission to review projects.</p>
+    <p class="muted">{t($locale, 'noPermissionView')}</p>
   {:else}
     <div class="topbar">
-      <a class="btn-back" href="/admin/projects">← Back to Projects</a>
+      <a class="btn-back" href="/admin/projects">{t($locale, 'backToProjects')}</a>
       <div class="title">
-        Reviewing: <span class="hl">{project.project_name}</span>
-        <StatusBadge status={project.status} userRole={$auth.userRole ?? undefined} />
+        {t($locale, 'reviewingLabel')} <span class="hl">{project.project_name}</span>
+        <StatusBadge status={project.status} userRole={$auth.userRole ?? undefined} locale={$locale} />
       </div>
       <div class="spacer"></div>
       {#if isPendingReview}
-        <button class="btn-approve" on:click={handleApprove} disabled={acting}>✅ Approve &amp; Send to Factory</button>
-        <button class="btn-reject" on:click={handleReject} disabled={acting} title={flagCount === 0 ? 'Tick at least one row below first' : `${flagCount} row(s) flagged`}>
-          ❌ Reject{flagCount > 0 ? ` (${flagCount} flagged)` : ''}
+        <button class="btn-approve" on:click={handleApprove} disabled={acting}>{t($locale, 'approveAndSendFactory')}</button>
+        <button class="btn-reject" on:click={handleReject} disabled={acting}>
+          {flagCount > 0 ? t($locale, 'rejectWithCountTemplate').replace('{n}', String(flagCount)) : t($locale, 'rejectAction')}
         </button>
       {:else}
-        <span class="readonly-note">Read-only — already {project.status}</span>
+        <span class="readonly-note">{t($locale, 'readOnlyStatusTemplate').replace('{status}', statusLabel($locale, project.status))}</span>
       {/if}
     </div>
 
     <div class="meta-grid">
-      <div><span class="lbl">Designer</span><span class="val">{project.designer_name || '—'}</span></div>
-      <div><span class="lbl">Client</span><span class="val">{project.client || '—'}</span></div>
-      <div><span class="lbl">Estimated Cost</span><span class="val price">${formatNum(project.total_cost, 2)}</span></div>
-      <div><span class="lbl">Submitted</span><span class="val">{formatDate(project.created_at)}</span></div>
+      <div><span class="lbl">{t($locale, 'colDesignerName')}</span><span class="val">{project.designer_name || '—'}</span></div>
+      <div><span class="lbl">{t($locale, 'colClient')}</span><span class="val">{project.client || '—'}</span></div>
+      <div><span class="lbl">{t($locale, 'estimatedCostLabel')}</span><span class="val price mono">${formatNum(project.total_cost, 2)}</span></div>
+      <div><span class="lbl">{t($locale, 'submittedLabel')}</span><span class="val mono">{formatDate(project.created_at)}</span></div>
     </div>
 
     {#if isPendingReview}
-      <div class="hint">Tick the box on the right of any row, in any table below, then write why — the Designer will see exactly that row and reason when they reopen it.</div>
+      <div class="hint">{t($locale, 'flagRowsHint')}</div>
     {/if}
 
-    <div class="report-card">
+    <div class="report-card" dir="ltr">
+      <!-- mode="designer" with the SUBMITTED safety factor. This was
+           mode="procurement", which was wrong twice over: it added Discount
+           columns the Designer never fills in, and — because the discount
+           layout replaces the margin block — it hid the Safety Factor and
+           showed a Final Price with no margin in it. Admin is reviewing the
+           Designer's file, so it renders as the Designer's file, read-only. -->
       <FullReport
-        mode="procurement"
+        mode="designer"
+        safetyFactor={Number(pd.safetyFactor) || 0}
         projectName={project.project_name}
         engineer={project.designer_name || '—'}
         client={project.client || '—'}
@@ -150,60 +161,63 @@
     max-width: 1400px;
     margin: 0 auto;
     padding: 24px;
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-    background: #f8fafc;
+    font-family: var(--font-body);
+    background: var(--paper);
+    color: var(--ink);
     min-height: 100vh;
   }
   .muted {
-    color: #64748b;
+    color: var(--ink-soft);
   }
   .topbar {
     display: flex;
     align-items: center;
     gap: 14px;
-    background: #fff;
+    background: var(--card);
     padding: 16px 24px;
-    border-radius: 8px;
-    border: 1px solid #e2e8f0;
+    border-radius: 10px;
+    border: 1px solid var(--border);
     margin-bottom: 16px;
+    flex-wrap: wrap;
   }
   .spacer {
     flex: 1;
   }
   .btn-back {
-    background: #64748b;
+    background: var(--steel);
     color: #fff;
     padding: 8px 16px;
-    border-radius: 6px;
+    border-radius: 8px;
     font-weight: 700;
     font-size: 13px;
   }
   .title {
     font-size: 16px;
     font-weight: 700;
-    color: #0f172a;
     display: flex;
     align-items: center;
     gap: 8px;
   }
   .hl {
-    color: #2563eb;
+    color: var(--navy-3);
   }
   .btn-approve {
-    background: #10b981;
+    background: var(--success);
     color: #fff;
     border: none;
-    padding: 8px 16px;
-    border-radius: 6px;
+    padding: 9px 16px;
+    border-radius: 8px;
+    font-family: inherit;
     font-weight: 700;
     font-size: 13px;
   }
   .btn-reject {
-    background: #ef4444;
+    background: var(--danger);
     color: #fff;
     border: none;
-    padding: 8px 16px;
-    border-radius: 6px;
+    padding: 9px 16px;
+    border-radius: 8px;
+    font-family: inherit;
     font-weight: 700;
     font-size: 13px;
   }
@@ -212,50 +226,49 @@
     opacity: 0.6;
   }
   .readonly-note {
-    color: #64748b;
+    color: var(--ink-soft);
     font-size: 13px;
     font-style: italic;
   }
   .meta-grid {
     display: grid;
-    grid-template-columns: repeat(4, 1fr);
+    grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
     gap: 12px;
     margin-bottom: 16px;
   }
   .meta-grid > div {
-    background: #fff;
-    border: 1px solid #e2e8f0;
-    border-radius: 8px;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 10px;
     padding: 12px 16px;
     display: flex;
     flex-direction: column;
   }
   .lbl {
     font-size: 10.5px;
-    color: #94a3b8;
+    color: var(--ink-soft);
     text-transform: uppercase;
     font-weight: 700;
   }
   .val {
     font-size: 14px;
     font-weight: 700;
-    color: #0f172a;
   }
   .val.price {
-    color: #059669;
+    color: var(--success-deep);
   }
   .hint {
-    background: #eff6ff;
-    border: 1px solid #bfdbfe;
-    border-radius: 8px;
+    background: var(--info-bg);
+    border: 1px solid var(--info-border);
+    border-radius: 10px;
     padding: 10px 16px;
-    color: #1e40af;
+    color: var(--info-ink);
     font-size: 13px;
     margin-bottom: 16px;
   }
   .report-card {
-    background: #fff;
-    border: 1px solid #e2e8f0;
+    background: var(--card);
+    border: 1px solid var(--border);
     border-radius: 8px;
     overflow: hidden;
   }

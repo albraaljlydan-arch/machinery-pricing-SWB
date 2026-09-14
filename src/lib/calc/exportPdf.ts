@@ -14,6 +14,25 @@
 //  get scaled down to fit one page instead of spanning several.
 // ============================================================================
 
+//  ---- Why the PDF comes out light even when the screen is dark ----
+//  html2canvas does not read our CSS and decide colours; it rasterises what
+//  is actually rendered. So a dark report on screen would export as a dark
+//  PDF, which is useless on paper and burns toner.
+//
+//  It does, however, clone the document into a hidden iframe and rasterise
+//  the CLONE. `onclone` hands us that clone before it is drawn, so pinning
+//  data-theme="light" there gives the capture a light report while the real
+//  page on screen is never touched — no flicker, no restore step, and no
+//  chance of leaving the UI stuck in the wrong theme if the export throws.
+/** A4 content width in CSS pixels — the width the report is LAID OUT at for
+ *  the PDF, regardless of how wide it happens to be on screen.
+ *
+ *  The report used to be clamped to this on screen too, which is why the
+ *  material tables looked cramped in the preview. It is imposed here instead,
+ *  on the clone html2canvas rasterises, so the two can differ: full width to
+ *  read, A4 to print. */
+const PDF_CONTENT_PX = 860;
+
 const PAGE_WIDTH_MM = 210;
 const PAGE_HEIGHT_MM = 297;
 const MARGIN_MM = 12;
@@ -21,14 +40,17 @@ const CONTENT_WIDTH_MM = PAGE_WIDTH_MM - MARGIN_MM * 2;
 const MAX_CONTENT_HEIGHT_MM = PAGE_HEIGHT_MM - MARGIN_MM * 2;
 const SECTION_GAP_MM = 4;
 
+/** Thrown when there is nothing to rasterise. The caller owns the user-facing
+ *  message, because only it has the locale — this module has no UI. */
+export class NothingToExportError extends Error {}
+
 export async function exportReportToPdf(reportEl: HTMLElement, fileName: string): Promise<void> {
   const { default: jsPDF } = await import('jspdf');
   const { default: html2canvas } = await import('html2canvas');
 
   const sections = Array.from(reportEl.querySelectorAll<HTMLElement>('[data-report-page="true"]'));
   if (sections.length === 0) {
-    alert('No data to export.');
-    return;
+    throw new NothingToExportError('no sections to export');
   }
 
   const pdf = new jsPDF('p', 'mm', 'a4');
@@ -42,7 +64,27 @@ export async function exportReportToPdf(reportEl: HTMLElement, fileName: string)
       useCORS: true,
       backgroundColor: '#ffffff',
       logging: false,
-      windowWidth: 860,
+      windowWidth: PDF_CONTENT_PX,
+      onclone: (clonedDoc) => {
+        // Pin the cloned report to A4 content width. windowWidth alone sizes
+        // the offscreen viewport, but the report's own ancestors can still be
+        // wider than that; setting the width on the report root itself makes
+        // the captured layout deterministic and independent of the browser
+        // window the export happens to be run from.
+        clonedDoc.querySelectorAll<HTMLElement>('.report-root').forEach((el) => {
+          el.style.width = `${PDF_CONTENT_PX}px`;
+          el.style.maxWidth = `${PDF_CONTENT_PX}px`;
+        });
+        // Force the light palette on the copy that gets rasterised. Both the
+        // attribute and the report's own opt-out are set: the attribute
+        // covers the app tokens, and data-report-theme="light" covers the
+        // report's local palette in FullReport.svelte, which may have been
+        // pinned dark independently of the app theme.
+        clonedDoc.documentElement.setAttribute('data-theme', 'light');
+        clonedDoc.querySelectorAll<HTMLElement>('[data-report-theme]').forEach((el) => {
+          el.setAttribute('data-report-theme', 'light');
+        });
+      },
     });
 
     const pxPerMm = canvas.width / CONTENT_WIDTH_MM;

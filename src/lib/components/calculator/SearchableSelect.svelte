@@ -166,13 +166,18 @@
     gap: 4px;
     min-height: 30px;
   }
+  /* Same "not filled in yet" treatment as .input:placeholder-shown in
+     shared-tab.css — a dashed outline and a faint tint, not a solid grey
+     fill that flips to the card colour the instant a value is picked. */
   .ss-trigger.empty {
-    background-color: #94a3b8 !important;
-    color: #f1f5f9 !important;
+    border-style: dashed !important;
+    border-color: var(--steel-2) !important;
+    background-color: color-mix(in srgb, var(--steel-2) 12%, var(--card)) !important;
+    color: var(--ink-soft) !important;
   }
   .ss-trigger.disabled {
-    background-color: #f1f5f9 !important;
-    color: #94a3b8 !important;
+    background-color: var(--paper) !important;
+    color: var(--ink-soft) !important;
     cursor: not-allowed;
   }
   .ss-trigger-text {
@@ -193,28 +198,34 @@
     left: 0;
     right: 0;
     min-width: 220px;
-    background: #fff;
-    border: 1px solid #cbd5e1;
+    /* Was a hardcoded white panel with light-grey chrome. On a dark theme
+       the trigger stayed dark and then this popped open as a sheet of
+       white — the single most jarring dark-mode defect in the calculator.
+       Every surface in here is a token now. */
+    background: var(--card);
+    border: 1px solid var(--border);
     border-radius: 6px;
-    box-shadow: 0 8px 24px rgba(15, 23, 42, 0.15);
+    box-shadow: var(--shadow);
     z-index: 500;
     overflow: hidden;
     text-align: left;
   }
   .ss-search-wrap {
     padding: 6px;
-    border-bottom: 1px solid #e2e8f0;
-    background: #f8fafc;
+    border-bottom: 1px solid var(--border);
+    background: var(--paper);
   }
   .ss-search-input {
     width: 100%;
     box-sizing: border-box;
-    border: 1px solid #cbd5e1;
+    border: 1px solid var(--border);
     border-radius: 4px;
     padding: 5px 8px;
     font-size: 12px;
     outline: none;
     font-family: inherit;
+    background: var(--card);
+    color: var(--ink);
   }
   .ss-list {
     max-height: 220px;
@@ -223,30 +234,32 @@
   .ss-empty {
     padding: 10px;
     font-size: 12px;
-    color: #94a3b8;
+    color: var(--ink-soft);
     text-align: center;
   }
   .ss-option {
     padding: 7px 10px;
     font-size: 12px;
     cursor: pointer;
-    border-bottom: 1px solid #f1f5f9;
+    border-bottom: 1px solid var(--border);
   }
+  /* --card-hover, not --paper: a hovered option has to read as lifted in
+     BOTH themes, and --paper is darker than --card once the theme flips. */
   .ss-option:hover:not(.active) {
-    background-color: #f8fafc;
+    background-color: var(--card-hover);
   }
   .ss-option.active {
-    background-color: #eff6ff;
+    background-color: var(--info-bg);
   }
   .ss-option-label {
-    color: #1e293b;
+    color: var(--ink);
     font-weight: 400;
   }
   .ss-option-label.active {
     font-weight: 600;
   }
   .ss-option-sub {
-    color: #64748b;
+    color: var(--ink-soft);
     font-size: 11px;
     margin-top: 1px;
   }
@@ -257,13 +270,13 @@
     padding: 9px 10px;
     font-size: 12px;
     font-weight: 600;
-    color: #2563eb;
-    background-color: #eff6ff;
-    border-top: 1px solid #dbeafe;
+    color: var(--info-ink);
+    background-color: var(--info-bg);
+    border-top: 1px solid var(--info-border);
     cursor: pointer;
   }
   .ss-addnew:hover {
-    background-color: #dbeafe;
+    background-color: color-mix(in srgb, var(--info-ink) 18%, var(--info-bg));
   }
   .ss-addnew-icon {
     display: inline-flex;
@@ -272,8 +285,8 @@
     width: 16px;
     height: 16px;
     border-radius: 50%;
-    background-color: #2563eb;
-    color: #fff;
+    background-color: var(--info-ink);
+    color: var(--info-bg);
     font-size: 11px;
     flex-shrink: 0;
   }

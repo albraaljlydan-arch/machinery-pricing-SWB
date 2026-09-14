@@ -91,7 +91,7 @@
     font-size: 13px;
   }
   th {
-    text-align: start;
+    text-align: center;
     font-size: 10.5px;
     color: var(--steel-2);
     text-transform: uppercase;
@@ -101,7 +101,7 @@
     font-weight: 600;
   }
   td {
-    text-align: start;
+    text-align: center;
     padding: 8px 12px;
     border-bottom: 1px solid var(--border);
   }
@@ -117,7 +117,8 @@
     border-radius: 6px;
     padding: 5px 8px;
     font-size: 13px;
-    font-family: var(--font-mono);
+    font-family: var(--font-num);
+    font-variant-numeric: tabular-nums;
     background: var(--paper);
     color: var(--ink);
   }

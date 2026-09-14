@@ -4,6 +4,7 @@
   import { formatDate } from '$lib/calc/formatDate';
   import { locale } from '$lib/stores/locale';
   import { t, statusLabel } from '$lib/i18n/dict';
+  import { formatCount as fmt } from '$lib/utils';
   import StatusBadge from '$lib/components/StatusBadge.svelte';
 
   interface ProjectRow {
@@ -30,9 +31,6 @@
   $: totalValue = projects.reduce((sum, p) => sum + Number(p.total_cost || 0), 0);
   $: statusCounts = STATUSES.map((s) => ({ status: s, count: projects.filter((p) => p.status === s).length }));
 
-  function fmt(n: number) {
-    return Number(n || 0).toLocaleString('en-US', { maximumFractionDigits: 0 });
-  }
 
   function exportCsv() {
     const header = ['Project', 'Client', 'Designer', 'Cost ($)', 'Status', 'Created'];
@@ -132,7 +130,7 @@
     {:else}
       <table>
         <thead>
-          <tr><th>{t($locale, 'colProject')}</th><th>{t($locale, 'colClient')}</th><th>{t($locale, 'colDesignerName')}</th><th>{t($locale, 'colCost')}</th><th>{t($locale, 'colStatus')}</th><th>{t($locale, 'colCreated')}</th></tr>
+          <tr><th>{t($locale, 'colProject')}</th><th>{t($locale, 'colClient')}</th><th>{t($locale, 'colDesignerName')}</th><th class="col-center">{t($locale, 'colCost')}</th><th class="col-center">{t($locale, 'colStatus')}</th><th class="col-center">{t($locale, 'colCreated')}</th></tr>
         </thead>
         <tbody>
           {#each projects as p}
@@ -141,8 +139,8 @@
               <td>{p.client || '—'}</td>
               <td>{p.designer_name || '—'}</td>
               <td class="mono">${fmt(p.total_cost)}</td>
-              <td><StatusBadge status={p.status} userRole="admin" locale={$locale} /></td>
-              <td class="muted">{formatDate(p.created_at)}</td>
+              <td class="col-center"><StatusBadge status={p.status} userRole="admin" locale={$locale} /></td>
+              <td class="muted mono">{formatDate(p.created_at)}</td>
             </tr>
           {/each}
         </tbody>
@@ -245,7 +243,7 @@
     font-size: 13px;
   }
   th {
-    text-align: start;
+    text-align: center;
     font-size: 10.5px;
     color: var(--steel-2);
     text-transform: uppercase;
@@ -255,7 +253,7 @@
     font-weight: 600;
   }
   td {
-    text-align: start;
+    text-align: center;
     padding: 10px 12px;
     border-bottom: 1px solid var(--border);
   }
@@ -266,7 +264,6 @@
     font-weight: 700;
   }
   .mono {
-    font-family: var(--font-mono);
     font-weight: 700;
   }
   .muted {

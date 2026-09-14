@@ -6,23 +6,18 @@
   import { t } from '$lib/i18n/dict';
   import { toast } from '$lib/stores/toast';
   import { notifyRole } from '$lib/calc/notify';
+  import { encodeNotification } from '$lib/i18n/notifications';
   import { formatDate } from '$lib/calc/formatDate';
-
-  const OPERATION_TYPES = ['Laser Cutting', 'CNC Machining', 'Turning', 'Welding', 'Assembly', 'Other'];
+  import { OPERATION_TYPES, CUSTOM_OPERATION, operationLabel } from '$lib/calc/operationTypes';
 
   interface ProjectOption {
     id: string;
     project_name: string;
   }
-  interface WorkerOption {
-    id: string;
-    full_name: string;
-  }
   interface OperationRow {
     id: string;
     project_name_snapshot: string;
     operation_type: string;
-    worker_name: string;
     work_date: string;
     completion_percent: number;
     notes: string | null;
@@ -30,17 +25,32 @@
   }
 
   let projects: ProjectOption[] = [];
-  let workers: WorkerOption[] = [];
   let recent: OperationRow[] = [];
   let loadingRecent = true;
   let saving = false;
 
   let projectId = '';
-  let operationType = OPERATION_TYPES[0];
-  let workerId = '';
+  let operationType: string = OPERATION_TYPES[0].id;
   let workDate = new Date().toISOString().slice(0, 10);
   let completionPercent = 0;
   let notes = '';
+
+  // ---- Custom operation ----
+  // "Other" used to be a plain option that stored the literal word "Other",
+  // which told nobody downstream what was actually done. It is now a proper
+  // custom entry: picking it reveals a text field, and — the part that
+  // matters — an explicit way back out. Backing out restores the first preset
+  // and clears whatever was typed, so there is no half-state where the form
+  // still remembers an abandoned custom name.
+  let customOperation = '';
+  $: isCustom = operationType === CUSTOM_OPERATION;
+  /** What actually gets written to operation_type. */
+  $: effectiveOperation = isCustom ? customOperation.trim() : operationType;
+
+  function cancelCustomOperation() {
+    operationType = OPERATION_TYPES[0].id;
+    customOperation = '';
+  }
 
   async function loadRecent() {
     loadingRecent = true;
@@ -49,29 +59,40 @@
     loadingRecent = false;
   }
 
+  let loadingOptions = true;
+
   onMount(async () => {
-    const [{ data: projData }, { data: workerData }] = await Promise.all([
-      supabase.from('projects').select('id, project_name').order('project_name'),
-      supabase.from('factory_workers').select('id, full_name').order('full_name'),
-    ]);
+    // ONLY machines the factory is currently building. Progress can't
+    // meaningfully be reported against a draft, something still awaiting
+    // approval, or a job that already shipped — and the unfiltered list
+    // this used to load was why the dropdown filled up with projects that
+    // had nothing to log against.
+    const { data: projData, error: projErr } = await supabase.from('projects').select('id, project_name').eq('status', 'In Production').order('project_name');
+    // The error used to be swallowed, so a failed query and a genuinely empty
+    // queue produced the identical blank dropdown with no way to tell which
+    // had happened.
+    if (projErr) toast.notify(t($locale, 'loadProjectsErrorPrefix') + projErr.message, 'error');
     projects = projData || [];
-    workers = workerData || [];
     if (projects.length > 0) projectId = projects[0].id;
-    if (workers.length > 0) workerId = workers[0].id;
+    loadingOptions = false;
     loadRecent();
   });
 
+  // THIS is why the Log button was dead: it required a worker, the worker
+  // roster was empty, so `workerId` never became truthy and the button could
+  // never enable — with nothing on screen explaining why. The worker field is
+  // gone entirely now, so the only real requirements are a machine and an
+  // operation name.
+  $: canLog = !!projectId && !!effectiveOperation && !saving;
+
   async function logOperation() {
-    if (!projectId || !workerId) return;
+    if (!canLog) return;
     saving = true;
     const proj = projects.find((p) => p.id === projectId);
-    const worker = workers.find((w) => w.id === workerId);
     const { error } = await supabase.from('factory_operations').insert({
       project_id: projectId,
       project_name_snapshot: proj?.project_name ?? '—',
-      operation_type: operationType,
-      worker_id: workerId,
-      worker_name: worker?.full_name ?? '—',
+      operation_type: effectiveOperation,
       work_date: workDate,
       completion_percent: completionPercent,
       notes: notes.trim() || null,
@@ -83,9 +104,10 @@
       toast.notify(t($locale, 'operationLogErrorPrefix') + error.message, 'error');
     } else {
       toast.notify(t($locale, 'operationLoggedSuccess'), 'success');
-      notifyRole('factory', `New progress entry for "${proj?.project_name ?? '—'}" is pending your approval.`, '/factory/approve-progress');
+      notifyRole('factory', encodeNotification('progressPendingApproval', { name: proj?.project_name ?? '—' }), '/factory/approve-progress');
       notes = '';
       completionPercent = 0;
+      cancelCustomOperation();
       loadRecent();
     }
   }
@@ -94,31 +116,45 @@
 <div class="panel">
   <h3>{t($locale, 'logOperationBtn')}</h3>
   <p class="desc">{t($locale, 'followupDesc')}</p>
+  <p class="desc hint">{t($locale, 'inProductionOnlyHint')}</p>
 
   <div class="form-grid">
     <label>
       {t($locale, 'selectProjectPlaceholder')}
-      <select bind:value={projectId}>
+      <select bind:value={projectId} disabled={projects.length === 0}>
+        <!-- An explicit empty option. Without one the select rendered as a
+             blank box that looked broken rather than empty. -->
+        {#if projects.length === 0}
+          <option value="">{loadingOptions ? t($locale, 'loading') : t($locale, 'noProjectsInProduction')}</option>
+        {/if}
         {#each projects as p}<option value={p.id}>{p.project_name}</option>{/each}
       </select>
     </label>
     <label>
       {t($locale, 'selectOperationPlaceholder')}
       <select bind:value={operationType}>
-        {#each OPERATION_TYPES as op}<option value={op}>{op}</option>{/each}
+        {#each OPERATION_TYPES as op (op.id)}<option value={op.id}>{operationLabel($locale, op.id)}</option>{/each}
+        <option value={CUSTOM_OPERATION}>{t($locale, 'customOperationOption')}</option>
       </select>
+      {#if isCustom}
+        <!-- The way back out sits directly under the field, is a real button
+             rather than "pick the first item again", and says what it does.
+             That is the whole point: choosing a custom operation must never
+             feel like a one-way door. -->
+        <div class="custom-op">
+          <input type="text" bind:value={customOperation} placeholder={t($locale, 'customOperationPlaceholder')} dir="auto" />
+          <button type="button" class="btn-cancel-custom" on:click={cancelCustomOperation} title={t($locale, 'cancelCustomOperationTitle')}>
+            {t($locale, 'cancelCustomOperation')}
+          </button>
+        </div>
+        {#if !customOperation.trim()}
+          <span class="field-hint warn">{t($locale, 'customOperationNeedsName')}</span>
+        {/if}
+      {/if}
     </label>
-    <label>
-      {t($locale, 'colWorker')}
-      <select bind:value={workerId}>
-        {#if workers.length === 0}<option value="">{t($locale, 'noWorkersYet')}</option>{/if}
-        {#each workers as w}<option value={w.id}>{w.full_name}</option>{/each}
-      </select>
-    </label>
-    <label>
-      {t($locale, 'colWorkDate')}
-      <input type="date" bind:value={workDate} />
-    </label>
+    <!-- No date field at all. It was locked to today anyway, so showing a
+         dead input plus a line explaining why it was dead only added noise:
+         the entry is stamped with today's date on save either way. -->
     <label>
       {t($locale, 'colCompletion')}
       <input type="number" min="0" max="100" bind:value={completionPercent} />
@@ -129,7 +165,7 @@
     </label>
   </div>
 
-  <button class="btn-log" on:click={logOperation} disabled={saving || !projectId || !workerId}>
+  <button class="btn-log" on:click={logOperation} disabled={!canLog}>
     {saving ? t($locale, 'savingGeneric') : t($locale, 'logOperationBtn')}
   </button>
 </div>
@@ -146,23 +182,21 @@
         <tr>
           <th>{t($locale, 'colProject')}</th>
           <th>{t($locale, 'colOperationType')}</th>
-          <th>{t($locale, 'colWorkerName')}</th>
-          <th>{t($locale, 'colWorkDate')}</th>
-          <th>{t($locale, 'colCompletion')}</th>
+          <th class="col-center">{t($locale, 'colWorkDate')}</th>
+          <th class="col-center">{t($locale, 'colCompletion')}</th>
           <th>{t($locale, 'colNotes')}</th>
-          <th>{t($locale, 'colApprovalStatus')}</th>
+          <th class="col-center">{t($locale, 'colApprovalStatus')}</th>
         </tr>
       </thead>
       <tbody>
         {#each recent as row}
           <tr>
             <td>{row.project_name_snapshot}</td>
-            <td>{row.operation_type}</td>
-            <td>{row.worker_name}</td>
+            <td>{operationLabel($locale, row.operation_type)}</td>
             <td class="mono">{formatDate(row.work_date)}</td>
             <td class="mono">{row.completion_percent}%</td>
             <td class="muted">{row.notes || '—'}</td>
-            <td>
+            <td class="col-center">
               <span class="status-pill status-{row.approval_status}">
                 {row.approval_status === 'approved' ? t($locale, 'approvalStatusApproved') : row.approval_status === 'rejected' ? t($locale, 'approvalStatusRejected') : t($locale, 'approvalStatusPending')}
               </span>
@@ -192,6 +226,51 @@
     margin: 0 0 14px;
     font-size: 12.5px;
     color: var(--ink-soft);
+  }
+  .desc.hint {
+    background: var(--info-bg);
+    border: 1px solid var(--info-border);
+    color: var(--info-ink);
+    border-radius: 8px;
+    padding: 8px 12px;
+  }
+  .field-hint {
+    font-size: 11px;
+    color: var(--ink-soft);
+  }
+  .field-hint.warn {
+    color: var(--warn-ink);
+  }
+  .custom-op {
+    display: flex;
+    gap: 6px;
+    align-items: stretch;
+  }
+  .custom-op input {
+    flex: 1;
+    min-width: 0;
+  }
+  .btn-cancel-custom {
+    flex-shrink: 0;
+    background: var(--paper);
+    border: 1px solid var(--border);
+    color: var(--ink-soft);
+    border-radius: 7px;
+    padding: 0 10px;
+    font-family: inherit;
+    font-size: 11.5px;
+    font-weight: 600;
+    white-space: nowrap;
+    cursor: pointer;
+  }
+  .btn-cancel-custom:hover {
+    background: var(--card-hover);
+    color: var(--ink);
+  }
+  .form-grid input:disabled {
+    background: var(--paper);
+    color: var(--ink-soft);
+    cursor: not-allowed;
   }
   .form-grid {
     display: grid;
@@ -242,7 +321,7 @@
     font-size: 13px;
   }
   th {
-    text-align: start;
+    text-align: center;
     font-size: 10.5px;
     color: var(--steel-2);
     text-transform: uppercase;
@@ -252,15 +331,12 @@
     font-weight: 600;
   }
   td {
-    text-align: start;
+    text-align: center;
     padding: 10px 12px;
     border-bottom: 1px solid var(--border);
   }
   tr:last-child td {
     border-bottom: none;
-  }
-  .mono {
-    font-family: var(--font-mono);
   }
   .status-pill {
     font-size: 11px;
@@ -278,7 +354,7 @@
     color: var(--success-deep, #1e6b41);
   }
   .status-pill.status-rejected {
-    background: #fdecea;
-    color: #7a1610;
+    background: var(--danger-bg);
+    color: var(--danger-deep);
   }
 </style>

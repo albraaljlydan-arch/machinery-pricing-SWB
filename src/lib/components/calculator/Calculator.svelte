@@ -9,7 +9,7 @@
   // ==========================================================================
   import type { SheetRow, ProfileRow, MillRow, PipeRow, SquareRow, OrderRow, OperationRow, InvoiceRow } from '$lib/types';
   import type { FlagSet } from '$lib/calc/reviewFlags';
-  import { safetyFactor } from '$lib/stores/safetyFactor';
+  import { safetyFactor as safetyFactorStore } from '$lib/stores/safetyFactor';
 
   import SheetTab from './SheetTab.svelte';
   import ProfileTab from './ProfileTab.svelte';
@@ -45,6 +45,13 @@
   export let designerName = '';
   export let clientName = '';
   export let status = 'Draft';
+  /** The margin the Designer's report applies. Passed in rather than read
+   *  from the store directly, so a project that has left the Designer's hands
+   *  renders the factor it was SUBMITTED with instead of whatever the current
+   *  viewer happens to have set in their own browser. Defaults to the live
+   *  setting for any caller that doesn't care. */
+  export let safetyFactor: number | undefined = undefined;
+  $: appliedSafetyFactor = mode === 'designer' ? (safetyFactor ?? $safetyFactorStore) : 0;
   // Only the Designer who owns this project, and only while it's still
   // theirs to touch (Draft/Rejected), can rename it here — everyone else
   // (Admin/Factory/Procurement reviewing it, or the Designer once it's
@@ -83,10 +90,6 @@
      what keeps the whole calculator subtree LTR even when the document's
      <html> is currently set to dir="rtl". -->
 <div class="calc-shell" dir="ltr">
-  {#if mode === 'procurement'}
-    <div class="procurement-banner">🛒 Procurement Version — all prices are open and editable.</div>
-  {/if}
-
   <!-- Project Name lives here, above the tab bar, precisely because it
        needs to stay visible and editable no matter which tab is active —
        it used to be buried inside the Summary tab, invisible the rest of
@@ -128,7 +131,7 @@
         {designerName}
         {clientName}
         {status}
-        safetyFactor={mode === 'designer' ? $safetyFactor : 0}
+        safetyFactor={appliedSafetyFactor}
         sheets={sheetRows}
         profiles={profileRows}
         mills={millRows}
@@ -147,15 +150,6 @@
     flex-direction: column;
     gap: 16px;
   }
-  .procurement-banner {
-    background: var(--purple-bg, #e9e3fa);
-    color: var(--purple-ink, #3f2e82);
-    text-align: center;
-    font-weight: 700;
-    font-size: 13px;
-    padding: 10px 16px;
-    border-radius: 10px;
-  }
   .name-box {
     background: var(--card, #fff);
     border: 1px solid var(--border, #dee4df);
@@ -167,27 +161,30 @@
     display: block;
     font-size: 11px;
     font-weight: 700;
-    color: #94a3b8;
+    color: var(--ink-soft);
     text-transform: uppercase;
     margin-bottom: 6px;
   }
+  /* The project-name field sits on a var(--card) panel but hardcoded its own
+     near-black ink, so in dark mode the name was black-on-dark — invisible
+     until you selected it. */
   .name-box input {
     width: 100%;
     border: none;
     outline: none;
     font-size: 17px;
     font-weight: 700;
-    color: #0f172a;
+    color: var(--ink);
     font-family: inherit;
     background: transparent;
     padding: 0;
   }
   .name-box input:disabled {
-    color: #64748b;
+    color: var(--ink-soft);
     cursor: not-allowed;
   }
   .name-box input.untitled {
-    color: #94a3b8;
+    color: var(--steel-2);
     font-style: italic;
   }
   .tabnav {

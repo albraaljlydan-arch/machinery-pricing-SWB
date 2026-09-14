@@ -607,7 +607,7 @@
     table-layout: fixed;
   }
   th {
-    text-align: left;
+    text-align: center;
     background: var(--paper);
     padding: 7px 10px;
     border-bottom: 1px solid var(--border);
@@ -619,7 +619,7 @@
     white-space: nowrap;
   }
   td {
-    text-align: start;
+    text-align: center;
     padding: 8px 10px;
     border-bottom: 1px solid var(--border);
     color: var(--ink);

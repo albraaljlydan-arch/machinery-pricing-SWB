@@ -1,6 +1,6 @@
 import type { SheetRow, ProfileRow, MillRow, PipeRow, SquareRow, OrderRow, OperationRow } from '../types';
 import { computeSheetRow, computeProfileRow, computeMillRow, computePipeRow, computeSquareRow, computeOrderRow, getRowError, getProfileError, getPipeError, sanitizeNum } from '../utils';
-import { applyRowPricing } from './pricing';
+import { applyRowPricing, type RowPricingOptions } from './pricing';
 
 export interface GrandTotals {
   totalWeight: number;
@@ -11,6 +11,15 @@ export interface GrandTotals {
   /** Final total after every row's own discount — what the project is
    *  actually worth. */
   totalPrice: number;
+  /** Under `requireManualPrice` only: material rows still waiting for a real
+   *  $/kg. Non-zero means totalPrice is understated — Procurement hasn't
+   *  finished pricing the job.
+   *
+   *  Counts the five weight-based categories only. Orders and Processing are
+   *  left out on purpose: their money field IS the input, and a genuinely
+   *  $0 line (an unused pre-seeded process, say) is normal there, so
+   *  counting them would make this number permanently non-zero and useless. */
+  unpricedRows: number;
 }
 
 function priceMode(row: { type: 'standard' | 'per_piece' }) {
@@ -26,35 +35,38 @@ export interface CategoryBreakdownRow {
 /** Per-category subtotals (post-discount) — what the Summary tab shows the
  *  Owner instead of just one grand total, since they're knowledgeable
  *  enough to want to see where the number actually comes from. */
-export function computeCategoryBreakdown(rows: {
-  sheets: SheetRow[];
-  profiles: ProfileRow[];
-  mills: MillRow[];
-  pipes: PipeRow[];
-  squares: SquareRow[];
-  orders: OrderRow[];
-  operations: OperationRow[];
-}): CategoryBreakdownRow[] {
+export function computeCategoryBreakdown(
+  rows: {
+    sheets: SheetRow[];
+    profiles: ProfileRow[];
+    mills: MillRow[];
+    pipes: PipeRow[];
+    squares: SquareRow[];
+    orders: OrderRow[];
+    operations: OperationRow[];
+  },
+  options: RowPricingOptions = {}
+): CategoryBreakdownRow[] {
   const priceModeOf = priceMode;
 
   const sheetTotals = rows.sheets.reduce(
-    (a, r) => (getRowError(r) ? a : (() => { const e = applyRowPricing(computeSheetRow(r, priceModeOf(r)), r); return { weight: a.weight + e.totalWeight, price: a.price + e.finalTotal }; })()),
+    (a, r) => (getRowError(r) ? a : (() => { const e = applyRowPricing(computeSheetRow(r, priceModeOf(r)), r, options); return { weight: a.weight + e.totalWeight, price: a.price + e.finalTotal }; })()),
     { weight: 0, price: 0 }
   );
   const profileTotals = rows.profiles.reduce(
-    (a, r) => (getProfileError(r) ? a : (() => { const e = applyRowPricing(computeProfileRow(r, priceModeOf(r)), r); return { weight: a.weight + e.totalWeight, price: a.price + e.finalTotal }; })()),
+    (a, r) => (getProfileError(r) ? a : (() => { const e = applyRowPricing(computeProfileRow(r, priceModeOf(r)), r, options); return { weight: a.weight + e.totalWeight, price: a.price + e.finalTotal }; })()),
     { weight: 0, price: 0 }
   );
   const millTotals = rows.mills.reduce(
-    (a, r) => (getRowError(r) ? a : (() => { const e = applyRowPricing(computeMillRow(r, priceModeOf(r)), r); return { weight: a.weight + e.totalWeight, price: a.price + e.finalTotal }; })()),
+    (a, r) => (getRowError(r) ? a : (() => { const e = applyRowPricing(computeMillRow(r, priceModeOf(r)), r, options); return { weight: a.weight + e.totalWeight, price: a.price + e.finalTotal }; })()),
     { weight: 0, price: 0 }
   );
   const pipeTotals = rows.pipes.reduce(
-    (a, r) => (getPipeError(r) ? a : (() => { const e = applyRowPricing(computePipeRow(r, priceModeOf(r)), r); return { weight: a.weight + e.totalWeight, price: a.price + e.finalTotal }; })()),
+    (a, r) => (getPipeError(r) ? a : (() => { const e = applyRowPricing(computePipeRow(r, priceModeOf(r)), r, options); return { weight: a.weight + e.totalWeight, price: a.price + e.finalTotal }; })()),
     { weight: 0, price: 0 }
   );
   const squareTotals = rows.squares.reduce(
-    (a, r) => (getRowError(r) ? a : (() => { const e = applyRowPricing(computeSquareRow(r, priceModeOf(r)), r); return { weight: a.weight + e.totalWeight, price: a.price + e.finalTotal }; })()),
+    (a, r) => (getRowError(r) ? a : (() => { const e = applyRowPricing(computeSquareRow(r, priceModeOf(r)), r, options); return { weight: a.weight + e.totalWeight, price: a.price + e.finalTotal }; })()),
     { weight: 0, price: 0 }
   );
   const orderPrice = rows.orders.reduce((a, r) => {
@@ -79,59 +91,68 @@ export function computeCategoryBreakdown(rows: {
   ].filter((row) => row.price > 0 || (row.weight ?? 0) > 0);
 }
 
-export function computeGrandTotals(rows: {
-  sheets: SheetRow[];
-  profiles: ProfileRow[];
-  mills: MillRow[];
-  pipes: PipeRow[];
-  squares: SquareRow[];
-  orders: OrderRow[];
-  operations: OperationRow[];
-}): GrandTotals {
+export function computeGrandTotals(
+  rows: {
+    sheets: SheetRow[];
+    profiles: ProfileRow[];
+    mills: MillRow[];
+    pipes: PipeRow[];
+    squares: SquareRow[];
+    orders: OrderRow[];
+    operations: OperationRow[];
+  },
+  options: RowPricingOptions = {}
+): GrandTotals {
   let totalWeight = 0;
   let totalDiscount = 0;
   let totalBeforeDiscount = 0;
   let totalPrice = 0;
+  let unpricedRows = 0;
 
   for (const row of rows.sheets) {
     if (getRowError(row)) continue;
-    const eff = applyRowPricing(computeSheetRow(row, priceMode(row)), row);
+    const eff = applyRowPricing(computeSheetRow(row, priceMode(row)), row, options);
     totalWeight += eff.totalWeight;
     totalDiscount += eff.discount;
     totalBeforeDiscount += eff.rawTotal;
     totalPrice += eff.finalTotal;
+    if (eff.unpriced) unpricedRows += 1;
   }
   for (const row of rows.profiles) {
     if (getProfileError(row)) continue;
-    const eff = applyRowPricing(computeProfileRow(row, priceMode(row)), row);
+    const eff = applyRowPricing(computeProfileRow(row, priceMode(row)), row, options);
     totalWeight += eff.totalWeight;
     totalDiscount += eff.discount;
     totalBeforeDiscount += eff.rawTotal;
     totalPrice += eff.finalTotal;
+    if (eff.unpriced) unpricedRows += 1;
   }
   for (const row of rows.mills) {
     if (getRowError(row)) continue;
-    const eff = applyRowPricing(computeMillRow(row, priceMode(row)), row);
+    const eff = applyRowPricing(computeMillRow(row, priceMode(row)), row, options);
     totalWeight += eff.totalWeight;
     totalDiscount += eff.discount;
     totalBeforeDiscount += eff.rawTotal;
     totalPrice += eff.finalTotal;
+    if (eff.unpriced) unpricedRows += 1;
   }
   for (const row of rows.pipes) {
     if (getPipeError(row)) continue;
-    const eff = applyRowPricing(computePipeRow(row, priceMode(row)), row);
+    const eff = applyRowPricing(computePipeRow(row, priceMode(row)), row, options);
     totalWeight += eff.totalWeight;
     totalDiscount += eff.discount;
     totalBeforeDiscount += eff.rawTotal;
     totalPrice += eff.finalTotal;
+    if (eff.unpriced) unpricedRows += 1;
   }
   for (const row of rows.squares) {
     if (getRowError(row)) continue;
-    const eff = applyRowPricing(computeSquareRow(row, priceMode(row)), row);
+    const eff = applyRowPricing(computeSquareRow(row, priceMode(row)), row, options);
     totalWeight += eff.totalWeight;
     totalDiscount += eff.discount;
     totalBeforeDiscount += eff.rawTotal;
     totalPrice += eff.finalTotal;
+    if (eff.unpriced) unpricedRows += 1;
   }
   for (const row of rows.orders) {
     const raw = Math.max(0, computeOrderRow(row).totalPrice);
@@ -148,5 +169,5 @@ export function computeGrandTotals(rows: {
     totalPrice += raw - discount;
   }
 
-  return { totalWeight, totalDiscount, totalBeforeDiscount, totalPrice };
+  return { totalWeight, totalDiscount, totalBeforeDiscount, totalPrice, unpricedRows };
 }
