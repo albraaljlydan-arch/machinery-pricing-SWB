@@ -18,6 +18,7 @@
   import { t, statusLabel } from '$lib/i18n/dict';
   import { toast } from '$lib/stores/toast';
   import { notifyRole } from '$lib/calc/notify';
+  import { logProjectEvent } from '$lib/calc/projectEvents';
   import { encodeNotification } from '$lib/i18n/notifications';
   import StatusBadge from '$lib/components/StatusBadge.svelte';
   import FullReport from '$lib/components/calculator/FullReport.svelte';
@@ -47,7 +48,24 @@
   onMount(load);
 
   $: pd = project?.project_data || {};
+  $: isAwaitingProduction = project?.status === 'Awaiting Production';
   $: isInProduction = project?.status === 'In Production';
+
+  function startProduction() {
+    toast.confirmWithUndo(t($locale, 'startProductionConfirmTemplate').replace('{name}', project.project_name), 3, async () => {
+      updating = true;
+      // Status change and creation of the 100% follow-up balances happen atomically.
+      const { error } = await supabase.rpc('start_production_with_followup_tasks', { p_project_id: projectId });
+      updating = false;
+      if (error) {
+        toast.notify(t($locale, 'couldNotUpdatePrefix') + error.message, 'error');
+      } else {
+        toast.notify(t($locale, 'startedProductionToast'), 'success');
+        logProjectEvent(projectId, 'production_started', $auth.session?.user.id);
+        load();
+      }
+    });
+  }
 
   function markFinished() {
     toast.confirmWithUndo(t($locale, 'confirmMarkFinishedTemplate').replace('{name}', project.project_name), 3, async () => {
@@ -59,6 +77,7 @@
       } else {
         toast.notify(t($locale, 'markedFinishedToast'), 'success');
         notifyRole('procurement', encodeNotification('manufacturingFinished', { name: project.project_name }), `/procurement/${projectId}`);
+        logProjectEvent(projectId, 'production_finished', $auth.session?.user.id);
         goto('/factory');
       }
     });
@@ -78,7 +97,9 @@
         <StatusBadge status={project.status} userRole={$auth.userRole ?? undefined} locale={$locale} />
       </div>
       <div class="spacer"></div>
-      {#if isInProduction}
+      {#if isAwaitingProduction}
+        <button class="btn-finish" on:click={startProduction} disabled={updating}>{t($locale, 'startProductionAction')}</button>
+      {:else if isInProduction}
         <button class="btn-finish" on:click={markFinished} disabled={updating}>{t($locale, 'markAsFinishedAction')}</button>
       {:else}
         <span class="readonly-note">{t($locale, 'readOnlyStatusTemplate').replace('{status}', statusLabel($locale, project.status))}</span>

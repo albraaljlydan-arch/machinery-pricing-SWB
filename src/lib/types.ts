@@ -172,7 +172,7 @@ export interface InvoiceRow {
  *  so it type-checked as unreachable while being perfectly reachable. */
 export type UserRole = 'designer' | 'admin' | 'factory' | 'procurement' | 'accounting' | 'followup' | 'developer' | 'customer';
 
-export type ProjectStatus = 'Draft' | 'Pending Admin' | 'In Production' | 'Complete Production' | 'Completed' | 'Rejected';
+export type ProjectStatus = 'Draft' | 'Pending Admin' | 'Awaiting Production' | 'In Production' | 'Complete Production' | 'Completed' | 'Rejected';
 
 // ============================================================================
 //  ADMIN REJECT-FLAGGING
@@ -333,5 +333,23 @@ export interface ChatMessage {
   request_id: string;
   sender_id: string;
   body: string;
+  created_at: string;
+}
+
+// ============================================================================
+//  PROJECT EVENTS — the audit trail behind Admin's timeline and the
+//  per-designer performance figures. A project can be rejected and
+//  resubmitted any number of times, so this is a log, not a set of date
+//  columns on `projects`.
+// ============================================================================
+
+export type ProjectEventType = 'created' | 'submitted' | 'approved' | 'rejected' | 'production_started' | 'production_finished' | 'completed';
+
+export interface ProjectEvent {
+  id: string;
+  project_id: string;
+  event_type: ProjectEventType;
+  actor_id: string | null;
+  note: string | null;
   created_at: string;
 }

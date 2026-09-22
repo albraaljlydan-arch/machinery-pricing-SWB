@@ -20,6 +20,7 @@
   const CLASS_MAP: Record<string, string> = {
     Draft: 'status-draft',
     'Pending Admin': 'status-pending',
+    'Awaiting Production': 'status-awaiting',
     'In Production': 'status-inprod',
     'Complete Production': 'status-completeprod',
     Completed: 'status-completed',

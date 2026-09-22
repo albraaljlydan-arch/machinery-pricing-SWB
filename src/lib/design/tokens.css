@@ -303,12 +303,16 @@ button {
 :root {
   --draft-bg: #e2e8f0;
   --draft-ink: #475569;
+  --awaiting-bg: #d7f4f0;
+  --awaiting-ink: #0f766e;
   --inprod-bg: #e0f2fe;
   --inprod-ink: #0284c7;
 }
 html[data-theme='dark'] {
   --draft-bg: #263442;
   --draft-ink: #a9bcca;
+  --awaiting-bg: #0f2e2a;
+  --awaiting-ink: #5eead4;
   --inprod-bg: #0d2c40;
   --inprod-ink: #7cc6ee;
 }
@@ -342,6 +346,13 @@ html[data-theme='dark'] {
 }
 .status-pending::before {
   background: var(--amber-ink);
+}
+.status-awaiting {
+  background: var(--awaiting-bg);
+  color: var(--awaiting-ink);
+}
+.status-awaiting::before {
+  background: var(--awaiting-ink);
 }
 .status-inprod {
   background: var(--inprod-bg);

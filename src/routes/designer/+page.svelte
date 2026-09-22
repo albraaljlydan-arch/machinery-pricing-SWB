@@ -7,6 +7,7 @@
   import StatusBadge from '$lib/components/StatusBadge.svelte';
   import { makeDefaultSheetRows, makeDefaultProfileRows, makeDefaultMillRows, makeDefaultPipeRows, makeDefaultSquareRows, makeDefaultOrderRows, makeDefaultOperations } from '$lib/calc/defaultRows';
   import { nextUntitledProjectName } from '$lib/calc/untitledName';
+  import { logProjectEvent } from '$lib/calc/projectEvents';
   import { toast } from '$lib/stores/toast';
   import { locale } from '$lib/stores/locale';
   import { t } from '$lib/i18n/dict';
@@ -59,8 +60,10 @@
       .select()
       .single();
     creating = false;
-    if (!error && data) goto(`/designer/${data.id}`);
-    else if (error) toast.notify(t($locale, 'createProjectErrorPrefix') + error.message, 'error');
+    if (!error && data) {
+      logProjectEvent(data.id, 'created', userId);
+      goto(`/designer/${data.id}`);
+    } else if (error) toast.notify(t($locale, 'createProjectErrorPrefix') + error.message, 'error');
   }
 
   // Delete is only meaningful for a project the Designer still owns the

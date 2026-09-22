@@ -15,6 +15,7 @@
   import { applyRowPricing } from '$lib/calc/pricing';
   import { toast } from '$lib/stores/toast';
   import { notifyRole } from '$lib/calc/notify';
+  import { logProjectEvent } from '$lib/calc/projectEvents';
   import { encodeNotification } from '$lib/i18n/notifications';
   import { locale } from '$lib/stores/locale';
   import { t, statusLabel } from '$lib/i18n/dict';
@@ -40,6 +41,8 @@
   let operations: OperationRow[] = [];
   let reviewFlagSets: FlagSet = flagsToSets(undefined);
   let savedReviewFlags: any = undefined;
+  let renderImageUrl: string | null = null;
+  let uploadingImage = false;
 
   async function load() {
     loading = true;
@@ -70,6 +73,7 @@
     // replaced project_data wholesale without this field in it at all.
     savedReviewFlags = d.reviewFlags;
     projectSafetyFactor = Number(d.safetyFactor) || 0;
+    renderImageUrl = data.render_image_url ?? null;
     loading = false;
   }
 
@@ -115,6 +119,37 @@
     if (!userId) return [];
     const { data } = await supabase.from('projects').select('id, project_name').eq('user_id', userId).neq('id', projectId);
     return (data || []).map((p) => p.project_name);
+  }
+
+  // Uploaded and persisted the moment it's picked — not batched with the
+  // rest of buildProjectData() — so the render image survives even if the
+  // Designer navigates away without hitting Save Draft.
+  async function handleImageUpload(e: Event) {
+    const file = (e.target as HTMLInputElement).files?.[0];
+    if (!file) return;
+    uploadingImage = true;
+    const path = `${projectId}/${Date.now()}-${file.name}`;
+    const { error: uploadError } = await supabase.storage.from('project-renders').upload(path, file, { upsert: false });
+    if (uploadError) {
+      uploadingImage = false;
+      toast.notify(t($locale, 'imageUploadErrorPrefix') + uploadError.message, 'error');
+      return;
+    }
+    const { data: pub } = supabase.storage.from('project-renders').getPublicUrl(path);
+    const { error } = await supabase.from('projects').update({ render_image_url: pub.publicUrl }).eq('id', projectId);
+    uploadingImage = false;
+    if (error) {
+      toast.notify(t($locale, 'imageUploadErrorPrefix') + error.message, 'error');
+    } else {
+      renderImageUrl = pub.publicUrl;
+      toast.notify(t($locale, 'imageUploadedToast'), 'success');
+    }
+  }
+
+  async function removeImage() {
+    const { error } = await supabase.from('projects').update({ render_image_url: null }).eq('id', projectId);
+    if (error) toast.notify(t($locale, 'imageUploadErrorPrefix') + error.message, 'error');
+    else renderImageUrl = null;
   }
 
   async function saveDraft() {
@@ -171,6 +206,10 @@
       toast.notify(t($locale, 'needRealNameBeforeSubmit'), 'error');
       return;
     }
+    if (!renderImageUrl) {
+      toast.notify(t($locale, 'needImageBeforeSubmit'), 'error');
+      return;
+    }
     toast.confirmWithUndo(t($locale, 'submittingToAdminConfirm'), 3, async () => {
       submitting = true;
       const totals = computeGrandTotals({ sheets: sheetRows, profiles: profileRows, mills: millRows, pipes: pipeRows, squares: squareRows, orders: orderRows, operations });
@@ -184,6 +223,7 @@
       } else {
         notifyRole('admin', encodeNotification('projectSubmitted', { name: trimmed }), `/admin/projects/${projectId}`);
         notifyRole('developer', encodeNotification('projectSubmitted', { name: trimmed }), `/admin/projects/${projectId}`);
+        logProjectEvent(projectId, 'submitted', $auth.session?.user.id);
         goto('/designer');
       }
     });
@@ -212,6 +252,28 @@
     {#if status === 'Rejected' && flagCount > 0}
       <div class="reject-notice">{t($locale, 'rejectNoticeTemplate').replace('{n}', String(flagCount))}</div>
     {/if}
+
+    <div class="render-image-card">
+      <div class="render-image-label">{t($locale, 'renderImageLabel')}</div>
+      {#if renderImageUrl}
+        <div class="render-image-preview">
+          <img src={renderImageUrl} alt={t($locale, 'renderImageLabel')} />
+          {#if canEdit}
+            <button class="btn-remove-image" on:click={removeImage} disabled={uploadingImage}>{t($locale, 'removeImageAction')}</button>
+          {/if}
+        </div>
+      {:else if canEdit}
+        <div class="render-image-hint">{t($locale, 'renderImageHint')}</div>
+      {:else}
+        <div class="render-image-hint">—</div>
+      {/if}
+      {#if canEdit}
+        <label class="btn-upload-image" class:disabled={uploadingImage}>
+          {uploadingImage ? t($locale, 'uploadingImage') : t($locale, renderImageUrl ? 'replaceImageAction' : 'uploadImageAction')}
+          <input type="file" accept="image/*" on:change={handleImageUpload} disabled={uploadingImage} hidden />
+        </label>
+      {/if}
+    </div>
 
     <!-- Only the calculator itself is pinned LTR — its tables are English by
          design. The chrome above follows the dashboard's direction. -->
@@ -302,5 +364,59 @@
     font-size: 13px;
     font-weight: 600;
     margin-bottom: 16px;
+  }
+  .render-image-card {
+    background: var(--card, #fff);
+    border: 1px solid var(--border, #dbe2e6);
+    border-radius: 10px;
+    padding: 14px 16px;
+    margin-bottom: 16px;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    flex-wrap: wrap;
+  }
+  .render-image-label {
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--ink-soft, #4c616c);
+    text-transform: uppercase;
+  }
+  .render-image-hint {
+    font-size: 13px;
+    color: var(--ink-soft, #4c616c);
+    flex: 1;
+  }
+  .render-image-preview {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex: 1;
+  }
+  .render-image-preview img {
+    height: 64px;
+    width: 64px;
+    object-fit: cover;
+    border-radius: 8px;
+    border: 1px solid var(--border, #dbe2e6);
+  }
+  .btn-upload-image,
+  .btn-remove-image {
+    background: var(--steel, #34495e);
+    color: #fff;
+    padding: 8px 14px;
+    border-radius: 8px;
+    font-weight: 700;
+    font-size: 12.5px;
+    border: none;
+    cursor: pointer;
+    font-family: inherit;
+  }
+  .btn-remove-image {
+    background: var(--danger, #d9342b);
+  }
+  .btn-upload-image.disabled {
+    opacity: 0.6;
+    pointer-events: none;
   }
 </style>

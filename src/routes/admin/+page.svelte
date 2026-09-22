@@ -89,6 +89,7 @@
   });
 
   $: pending = projects.filter((project) => project.status === 'Pending Admin');
+  $: awaitingProduction = projects.filter((project) => project.status === 'Awaiting Production');
   $: inProduction = projects.filter((project) => project.status === 'In Production');
   $: completed = projects.filter((project) => project.status === 'Completed');
   $: rejected = projects.filter((project) => project.status === 'Rejected');
@@ -229,6 +230,9 @@
 <div class="stat-row">
   <a href="/admin/projects?status=Pending Admin" class="stat-link">
     <StatCard icon="clock" label={t($locale, 'kpiPendingLabel')} value={pending.length} deltaPct={deltaPct(pending)} deltaLabel={t($locale, 'vsLastMonth')} {loading} />
+  </a>
+  <a href="/admin/projects?status=Awaiting Production" class="stat-link">
+    <StatCard icon="clock" label={t($locale, 'statusAwaitingProduction')} value={awaitingProduction.length} deltaPct={deltaPct(awaitingProduction)} deltaLabel={t($locale, 'vsLastMonth')} {loading} />
   </a>
   <StatCard icon="gear" label={t($locale, 'kpiInProdLabel')} value={inProduction.length} deltaPct={deltaPct(inProduction)} deltaLabel={t($locale, 'vsLastMonth')} {loading} />
   <StatCard icon="check" label={t($locale, 'kpiCompletedLabel')} value={completed.length} deltaPct={deltaPct(completed)} deltaLabel={t($locale, 'vsLastMonth')} {loading} />
@@ -468,7 +472,7 @@
   }
   .stat-row {
     display: grid;
-    grid-template-columns: repeat(4, minmax(0, 1fr));
+    grid-template-columns: repeat(5, minmax(0, 1fr));
     gap: 14px;
   }
   .stat-link {

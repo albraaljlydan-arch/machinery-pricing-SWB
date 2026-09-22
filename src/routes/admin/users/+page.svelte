@@ -1,5 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte';
+  import { goto } from '$app/navigation';
   import { supabase } from '$lib/supabaseClient';
   import { locale } from '$lib/stores/locale';
   import { t } from '$lib/i18n/dict';
@@ -113,7 +114,10 @@
               </select>
             </td>
             <td class="col-actions">
-              <div><button class="btn-edit" on:click={() => openEditModal(u)}>{t($locale, 'editUserAction')}</button></div>
+              <div>
+                <button class="btn-view" on:click={() => goto(`/admin/people/${u.id}`)}>{t($locale, 'viewProfileAction')}</button>
+                <button class="btn-edit" on:click={() => openEditModal(u)}>{t($locale, 'editUserAction')}</button>
+              </div>
             </td>
           </tr>
         {/each}
@@ -236,7 +240,8 @@
     background: var(--card);
     color: var(--ink);
   }
-  .btn-edit {
+  .btn-edit,
+  .btn-view {
     background: transparent;
     border: 1px solid var(--border);
     color: var(--ink-soft);
@@ -244,6 +249,11 @@
     padding: 5px 12px;
     font-size: 12px;
     cursor: pointer;
+    margin-inline-end: 6px;
+  }
+  .btn-view {
+    color: var(--navy-3);
+    border-color: color-mix(in srgb, var(--navy-3) 35%, var(--border));
   }
   .hint {
     font-size: 11px;

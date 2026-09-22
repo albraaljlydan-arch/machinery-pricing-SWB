@@ -5,9 +5,6 @@
   import { supabase } from '$lib/supabaseClient';
   import { locale } from '$lib/stores/locale';
   import { t } from '$lib/i18n/dict';
-  import { toast } from '$lib/stores/toast';
-  import { notifyRole } from '$lib/calc/notify';
-  import { encodeNotification } from '$lib/i18n/notifications';
   import { formatCount as fmt } from '$lib/utils';
   import StatusBadge from '$lib/components/StatusBadge.svelte';
 
@@ -21,23 +18,42 @@
     designer_name?: string;
   }
 
-  let projects: ProjectRow[] = [];
+  let awaitingProjects: ProjectRow[] = [];
+  let inProductionProjects: ProjectRow[] = [];
+  let progressByProject: Record<string, number> = {};
   let loading = true;
 
   async function loadProjects() {
     loading = true;
-    const { data, error } = await supabase.from('projects_with_designer').select('*').eq('status', 'In Production').order('created_at', { ascending: false });
-    if (!error) projects = data || [];
+    const { data, error } = await supabase
+      .from('projects_with_designer')
+      .select('*')
+      .in('status', ['Awaiting Production', 'In Production'])
+      .order('created_at', { ascending: false });
+    if (!error && data) {
+      awaitingProjects = data.filter((p) => p.status === 'Awaiting Production');
+      inProductionProjects = data.filter((p) => p.status === 'In Production');
+
+      if (inProductionProjects.length > 0) {
+        const { data: ops } = await supabase
+          .from('factory_operations')
+          .select('project_id, completion_percent')
+          .eq('approval_status', 'approved')
+          .in('project_id', inProductionProjects.map((p) => p.id));
+        const sums: Record<string, number> = {};
+        for (const row of ops ?? []) sums[row.project_id] = (sums[row.project_id] ?? 0) + Number(row.completion_percent || 0);
+        progressByProject = Object.fromEntries(Object.entries(sums).map(([id, v]) => [id, Math.min(100, Math.round(v))]));
+      }
+    }
     loading = false;
   }
 
   onMount(loadProjects);
 
-  // "Mark Finished" used to be a button on every row here. It has moved into
-  // the project itself (factory/projects/[id]) so that handing a build to
-  // Procurement — the factory's counterpart to the designer's "Submit to
-  // Admin" — happens where you can see what you are handing over, instead of
-  // being one stray click on a list row away.
+  // "Mark Finished" (and now "Start Production") live on the project itself
+  // (factory/projects/[id]), not as a row action here — the factory's
+  // counterpart to the designer's "Submit to Admin", done where you can see
+  // what you're handing over/taking on, not a stray click on a list row.
 </script>
 
 <section>
@@ -47,27 +63,64 @@
 
   <div class="panel">
     <div class="panel-head">
-      <h3>{t($locale, 'inProduction')}</h3>
-      <span class="count-tag"><span class="mono">{loading ? '—' : projects.length}</span> {t($locale, 'projectsCountSuffix')}</span>
+      <h3>{t($locale, 'awaitingProductionQueueTitle')}</h3>
+      <span class="count-tag"><span class="mono">{loading ? '—' : awaitingProjects.length}</span> {t($locale, 'projectsCountSuffix')}</span>
     </div>
-    <p class="desc">{t($locale, 'factoryQueueDesc')}</p>
 
     {#if loading}
       <div class="empty">{t($locale, 'loading')}</div>
-    {:else if projects.length === 0}
-      <div class="empty">{t($locale, 'factoryEmpty')}</div>
+    {:else if awaitingProjects.length === 0}
+      <div class="empty">{t($locale, 'awaitingProductionEmpty')}</div>
     {:else}
       <table>
         <thead>
           <tr><th>{t($locale, 'colProject')}</th><th>{t($locale, 'colDesignerName')}</th><th>{t($locale, 'colClient')}</th><th class="col-center">{t($locale, 'colEstCost')}</th><th class="col-center">{t($locale, 'colStatus')}</th><th class="col-center">{t($locale, 'colSubmitted')}</th></tr>
         </thead>
         <tbody>
-          {#each projects as proj}
+          {#each awaitingProjects as proj}
             <tr class="clickable-row" on:click={() => goto(`/factory/projects/${proj.id}`)}>
               <td class="name">{proj.project_name}</td>
               <td>{proj.designer_name || '—'}</td>
               <td>{proj.client || '—'}</td>
               <td class="mono">${fmt(proj.total_cost)}</td>
+              <td class="col-center"><StatusBadge status={proj.status} userRole="factory" locale={$locale} /></td>
+              <td class="muted mono">{formatDate(proj.created_at)}</td>
+            </tr>
+          {/each}
+        </tbody>
+      </table>
+    {/if}
+  </div>
+
+  <div class="panel">
+    <div class="panel-head">
+      <h3>{t($locale, 'inProduction')}</h3>
+      <span class="count-tag"><span class="mono">{loading ? '—' : inProductionProjects.length}</span> {t($locale, 'projectsCountSuffix')}</span>
+    </div>
+    <p class="desc">{t($locale, 'factoryQueueDesc')}</p>
+
+    {#if loading}
+      <div class="empty">{t($locale, 'loading')}</div>
+    {:else if inProductionProjects.length === 0}
+      <div class="empty">{t($locale, 'factoryEmpty')}</div>
+    {:else}
+      <table>
+        <thead>
+          <tr><th>{t($locale, 'colProject')}</th><th>{t($locale, 'colDesignerName')}</th><th>{t($locale, 'colClient')}</th><th>{t($locale, 'colEstCost')}</th><th>{t($locale, 'progressLabel')}</th><th class="col-center">{t($locale, 'colStatus')}</th><th class="col-center">{t($locale, 'colSubmitted')}</th></tr>
+        </thead>
+        <tbody>
+          {#each inProductionProjects as proj}
+            <tr class="clickable-row" on:click={() => goto(`/factory/projects/${proj.id}`)}>
+              <td class="name">{proj.project_name}</td>
+              <td>{proj.designer_name || '—'}</td>
+              <td>{proj.client || '—'}</td>
+              <td class="mono">${fmt(proj.total_cost)}</td>
+              <td>
+                <div class="prog-cell">
+                  <div class="prog-track"><div class="prog-fill" style="width:{progressByProject[proj.id] ?? 0}%"></div></div>
+                  <span class="mono prog-value">{progressByProject[proj.id] ?? 0}%</span>
+                </div>
+              </td>
               <td class="col-center"><StatusBadge status={proj.status} userRole="factory" locale={$locale} /></td>
               <td class="muted mono">{formatDate(proj.created_at)}</td>
             </tr>
@@ -170,5 +223,27 @@
   .muted {
     color: var(--ink-soft);
     font-size: 12px;
+  }
+  .prog-cell {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    justify-content: center;
+  }
+  .prog-track {
+    width: 84px;
+    height: 6px;
+    border-radius: 4px;
+    background: var(--border);
+    overflow: hidden;
+  }
+  .prog-fill {
+    height: 100%;
+    border-radius: 4px;
+    background: linear-gradient(90deg, var(--navy-3), var(--cyan));
+  }
+  .prog-value {
+    font-size: 11.5px;
+    min-width: 30px;
   }
 </style>

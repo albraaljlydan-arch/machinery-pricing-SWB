@@ -59,6 +59,16 @@
   // rule; the Name field just lives up here now instead of in Summary.
   $: nameLocked = mode === 'procurement' || currentUserRole !== 'designer' || (status !== 'Draft' && status !== 'Rejected');
 
+  // Bug: once a Designer's project left Draft/Rejected, the outer page hid
+  // Save/Submit and locked the name field, but every row table underneath
+  // (Sheets, Profiles, Mills…) stayed fully editable — nothing ever
+  // disabled the actual inputs, so a reopened submitted/approved/rejected*
+  // project still looked and behaved like a live draft.
+  // *Rejected is intentionally excluded — that one IS still theirs to fix.
+  // Scoped to mode === 'designer' only: Procurement's own edit rules are
+  // unrelated and untouched.
+  $: readOnly = mode === 'designer' && status !== 'Draft' && status !== 'Rejected';
+
   const baseTabs = [
     { id: 'sheets', label: 'Sheet Metal' },
     { id: 'profiles', label: 'Profiles & Tubes' },
@@ -107,7 +117,10 @@
     {/each}
   </nav>
 
-  <div class="tab-content">
+  <!-- fieldset disabled cascades to every input/select/button inside it
+       natively — one switch for the whole tab tree instead of threading a
+       readOnly prop through every row field in every tab component. -->
+  <fieldset class="tab-content" disabled={readOnly}>
     {#if activeTab === 'sheets'}
       <SheetTab {mode} bind:rows={sheetRows} flagged={reviewFlags?.sheets} />
     {:else if activeTab === 'profiles'}
@@ -141,7 +154,7 @@
         {operations}
       />
     {/if}
-  </div>
+  </fieldset>
 </div>
 
 <style>
@@ -186,6 +199,18 @@
   .name-box input.untitled {
     color: var(--steel-2);
     font-style: italic;
+  }
+  /* Resets the browser's default fieldset chrome (border, padding, legend
+     gap, and the min-width: min-content that can overflow a flex/grid
+     parent) — it's only used here for its native disabled-cascade
+     behavior, not to look like a fieldset. */
+  .tab-content {
+    all: unset;
+    display: block;
+    min-width: 0;
+  }
+  .tab-content:disabled {
+    opacity: 0.7;
   }
   .tabnav {
     display: flex;

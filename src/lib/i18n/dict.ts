@@ -1,5 +1,5 @@
 import type { Locale } from '../stores/locale';
-import type { ProjectStatus, UserRole, CustomerRequestStatus } from '../types';
+import type { ProjectStatus, UserRole, CustomerRequestStatus, ProjectEventType } from '../types';
 
 // ============================================================================
 //  DICTIONARY — every string on every DASHBOARD screen (Admin, Designer,
@@ -182,6 +182,7 @@ const dict = {
     // ---- project status labels (StatusBadge + filters) ----
     statusDraft: 'مسودة',
     statusPendingAdmin: 'بانتظار المدير',
+    statusAwaitingProduction: 'قيد الانتظار',
     statusInProduction: 'قيد التصنيع',
     statusCompleteProduction: 'اكتمل التصنيع',
     statusCompleted: 'مكتمل',
@@ -402,6 +403,15 @@ const dict = {
     submittingToAdminConfirm: 'جارٍ الإرسال إلى المدير للمراجعة…',
     readOnlyLockedTemplate: '🔒 للقراءة فقط — الحالة: {status}',
     rejectNoticeTemplate: '🚫 رفض المدير هذا المشروع — {n} من السطور بحاجة إلى تصحيح. ابحث عن النقطة الحمراء على التبويب، ثم السطر المظلَّل داخله.',
+    renderImageLabel: '🖼️ صورة المشروع المرندرة',
+    renderImageHint: 'ارفع صورة مرندرة حلوة للمشروع بدل ما تبعت ملف الماكيت — لازم قبل الإرسال للمدير.',
+    uploadImageAction: '📤 رفع صورة',
+    replaceImageAction: '📤 تغيير الصورة',
+    removeImageAction: '✕ إزالة',
+    uploadingImage: 'جارٍ الرفع…',
+    imageUploadedToast: '🖼️ تم رفع الصورة.',
+    imageUploadErrorPrefix: 'خطأ برفع الصورة: ',
+    needImageBeforeSubmit: '⚠️ ارفع صورة مرندرة للمشروع قبل إرساله إلى المدير.',
 
     // ---- Admin: review screen ----
     approveAndSendFactory: '✅ موافقة وإرسال إلى المصنع',
@@ -459,6 +469,61 @@ const dict = {
 
     // ---- Factory: progress monitoring (its own copy of Admin's view) ----
     factoryOwnProgressDesc: 'العمليات التي وافقت عليها — هذا هو السجل الذي يصل إلى المدير.',
+
+    // ---- Global search ----
+    searchPeopleGroup: 'الأشخاص',
+    searchProjectsGroup: 'الماكينات والمشاريع',
+    searchNoResults: 'لا توجد نتائج مطابقة.',
+    searchTypeToStart: 'اكتب حرفين على الأقل لبدء البحث.',
+    searchAllResults: 'عرض جميع النتائج',
+    searchResultsTitle: 'نتائج البحث',
+    searchResultsForTemplate: 'نتائج البحث عن «{q}»',
+    searchHitsCountTemplate: '{n} نتيجة',
+
+    // ---- Person profile (Admin) ----
+    personProfileTitle: 'ملف الموظف',
+    viewProfileAction: 'عرض الملف',
+    personProjectsCreated: 'المشاريع المُنشأة',
+    personProjectsSubmitted: 'مرات التسليم',
+    personProjectsApproved: 'المعتمدة',
+    personProjectsRejected: 'المرفوضة',
+    personAvgDelivery: 'متوسط مدة التسليم',
+    personRejectionRate: 'نسبة الرفض',
+    personDaysUnit: 'يوم',
+    personNoProjects: 'لا توجد مشاريع مسجَّلة لهذا الموظف.',
+    personRecentProjects: 'أحدث المشاريع',
+    personActivityLog: 'سجلّ النشاط',
+    personNoActivity: 'لا يوجد نشاط مسجَّل بعد.',
+    backToSearch: 'عودة إلى النتائج',
+
+    // ---- Machine 360 view (Admin) ----
+    machineOverviewTitle: 'بطاقة الماكينة',
+    machineTimeline: 'المسار الزمني',
+    machineNoTimeline: 'لا توجد أحداث مسجَّلة لهذه الماكينة بعد.',
+    machineEstimateVsActual: 'التقدير مقابل التكلفة الفعلية',
+    machineEstimatedCost: 'التكلفة التقديرية',
+    machineActualCost: 'التكلفة الفعلية',
+    machineOperationsLog: 'عمليات التشغيل المسجَّلة',
+    machineNoOperations: 'لا توجد عمليات تشغيل مسجَّلة.',
+    machinePurchaseLog: 'طلبات الشراء',
+    machineNoPurchases: 'لا توجد طلبات شراء مسجَّلة.',
+    machineOpenFullReport: 'فتح التقرير الكامل',
+
+    // ---- Project event labels (timeline) ----
+    eventCreated: 'إنشاء المشروع',
+    eventSubmitted: 'تسليم للمراجعة',
+    eventApproved: 'اعتماد وإحالة إلى المصنع',
+    eventRejected: 'رفض وإعادة للمصمم',
+    eventProductionStarted: 'بدء التصنيع',
+    eventProductionFinished: 'انتهاء التصنيع',
+    eventCompleted: 'إغلاق وتسعير نهائي',
+    eventFlaggedRowsTemplate: '{n} سطرًا بحاجة إلى تصحيح',
+    startProductionAction: '⚙️ بدء التصنيع',
+    startProductionConfirmTemplate: 'بدء تصنيع "{name}"؟',
+    startedProductionToast: '⚙️ تم بدء التصنيع.',
+    awaitingProductionQueueTitle: 'بانتظار بدء التصنيع',
+    awaitingProductionEmpty: 'لا توجد ماكينات بانتظار بدء التصنيع.',
+    progressLabel: 'التقدم',
 
     // ---- Customer intake: request status labels ----
     statusRequestNew: 'جديد',
@@ -684,6 +749,7 @@ const dict = {
     // ---- project status labels (StatusBadge + filters) ----
     statusDraft: 'Draft',
     statusPendingAdmin: 'Pending Admin',
+    statusAwaitingProduction: 'Awaiting Production',
     statusInProduction: 'In Production',
     statusCompleteProduction: 'Complete Production',
     statusCompleted: 'Completed',
@@ -898,6 +964,15 @@ const dict = {
     submittingToAdminConfirm: 'Submitting to Admin for review…',
     readOnlyLockedTemplate: '🔒 Read-only — status is {status}',
     rejectNoticeTemplate: '🚫 Admin rejected this project — {n} row(s) need fixing. Look for the red dot on the tab, then the highlighted row inside it.',
+    renderImageLabel: '🖼️ Rendered Project Image',
+    renderImageHint: 'Upload a nice rendered image of the project instead of sending the raw mockup file — required before submitting to Admin.',
+    uploadImageAction: '📤 Upload Image',
+    replaceImageAction: '📤 Replace Image',
+    removeImageAction: '✕ Remove',
+    uploadingImage: 'Uploading…',
+    imageUploadedToast: '🖼️ Image uploaded.',
+    imageUploadErrorPrefix: 'Error uploading image: ',
+    needImageBeforeSubmit: '⚠️ Please upload a rendered project image before submitting it to Admin.',
 
     // ---- Admin: review screen ----
     approveAndSendFactory: '✅ Approve & Send to Factory',
@@ -955,6 +1030,61 @@ const dict = {
 
     // ---- Factory: progress monitoring (its own copy of Admin's view) ----
     factoryOwnProgressDesc: 'The operations you have approved — this is the log that reaches the Admin.',
+
+    // ---- Global search ----
+    searchPeopleGroup: 'People',
+    searchProjectsGroup: 'Machines & Projects',
+    searchNoResults: 'No matching results.',
+    searchTypeToStart: 'Type at least two characters to search.',
+    searchAllResults: 'View all results',
+    searchResultsTitle: 'Search Results',
+    searchResultsForTemplate: 'Results for “{q}”',
+    searchHitsCountTemplate: '{n} result(s)',
+
+    // ---- Person profile (Admin) ----
+    personProfileTitle: 'Employee Profile',
+    viewProfileAction: 'View Profile',
+    personProjectsCreated: 'Projects Created',
+    personProjectsSubmitted: 'Submissions',
+    personProjectsApproved: 'Approved',
+    personProjectsRejected: 'Rejected',
+    personAvgDelivery: 'Avg. Delivery Time',
+    personRejectionRate: 'Rejection Rate',
+    personDaysUnit: 'days',
+    personNoProjects: 'No projects recorded for this employee.',
+    personRecentProjects: 'Recent Projects',
+    personActivityLog: 'Activity Log',
+    personNoActivity: 'No recorded activity yet.',
+    backToSearch: 'Back to results',
+
+    // ---- Machine 360 view (Admin) ----
+    machineOverviewTitle: 'Machine Card',
+    machineTimeline: 'Timeline',
+    machineNoTimeline: 'No events recorded for this machine yet.',
+    machineEstimateVsActual: 'Estimate vs. Actual Cost',
+    machineEstimatedCost: 'Estimated Cost',
+    machineActualCost: 'Actual Cost',
+    machineOperationsLog: 'Logged Operations',
+    machineNoOperations: 'No operations logged.',
+    machinePurchaseLog: 'Purchase Requests',
+    machineNoPurchases: 'No purchase requests recorded.',
+    machineOpenFullReport: 'Open full report',
+
+    // ---- Project event labels (timeline) ----
+    eventCreated: 'Project created',
+    eventSubmitted: 'Submitted for review',
+    eventApproved: 'Approved and sent to factory',
+    eventRejected: 'Rejected, returned to designer',
+    eventProductionStarted: 'Production started',
+    eventProductionFinished: 'Manufacturing finished',
+    eventCompleted: 'Closed and finally priced',
+    eventFlaggedRowsTemplate: '{n} row(s) need fixing',
+    startProductionAction: '⚙️ Start Production',
+    startProductionConfirmTemplate: 'Start production on "{name}"?',
+    startedProductionToast: '⚙️ Production started.',
+    awaitingProductionQueueTitle: 'Awaiting Production Start',
+    awaitingProductionEmpty: 'No machines awaiting production start.',
+    progressLabel: 'Progress',
 
     // ---- Customer intake: request status labels ----
     statusRequestNew: 'New',
@@ -1070,6 +1200,7 @@ export function roleLabel(loc: Locale, role: UserRole | null): string {
 const STATUS_KEY: Record<ProjectStatus, DictKey> = {
   Draft: 'statusDraft',
   'Pending Admin': 'statusPendingAdmin',
+  'Awaiting Production': 'statusAwaitingProduction',
   'In Production': 'statusInProduction',
   'Complete Production': 'statusCompleteProduction',
   Completed: 'statusCompleted',
@@ -1097,4 +1228,21 @@ const REQUEST_STATUS_KEY: Record<CustomerRequestStatus, DictKey> = {
 export function requestStatusLabel(loc: Locale, status: string): string {
   const key = REQUEST_STATUS_KEY[status as CustomerRequestStatus];
   return key ? t(loc, key) : status;
+}
+
+const EVENT_KEY: Record<ProjectEventType, DictKey> = {
+  created: 'eventCreated',
+  submitted: 'eventSubmitted',
+  approved: 'eventApproved',
+  rejected: 'eventRejected',
+  production_started: 'eventProductionStarted',
+  production_finished: 'eventProductionFinished',
+  completed: 'eventCompleted',
+};
+
+/** Translated label for one project_events row type — used by Admin's machine
+ *  timeline and the per-person activity log. */
+export function eventLabel(loc: Locale, eventType: string): string {
+  const key = EVENT_KEY[eventType as ProjectEventType];
+  return key ? t(loc, key) : eventType;
 }

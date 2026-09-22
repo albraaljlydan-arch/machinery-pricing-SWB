@@ -5,11 +5,12 @@
   import { locale } from '$lib/stores/locale';
   import { t } from '$lib/i18n/dict';
   import { subscribeToTable } from '$lib/realtime';
-  import AdminShell from '$lib/components/admin/AdminShell.svelte';
+  import AppShell from '$lib/components/AppShell.svelte';
   import type { NavGroup, NavItem } from '$lib/components/navTypes';
 
   let pendingCount = 0;
   let rejectedCount = 0;
+  let awaitingProductionCount = 0;
   let newRequestsCount = 0;
 
   async function loadCounts() {
@@ -20,6 +21,7 @@
     if (!error && data) {
       pendingCount = data.filter((p) => p.status === 'Pending Admin').length;
       rejectedCount = data.filter((p) => p.status === 'Rejected').length;
+      awaitingProductionCount = data.filter((p) => p.status === 'Awaiting Production').length;
     }
     if (!reqError && requests) newRequestsCount = requests.length;
   }
@@ -45,6 +47,7 @@
         { href: '/admin/projects', label: t($locale, 'allProjects'), icon: 'grid' as const },
         { href: '/admin/projects?status=Pending Admin', label: t($locale, 'pendingApproval'), icon: 'clock' as const, badgeCount: pendingCount },
         { href: '/admin/projects?status=Rejected', label: t($locale, 'rejectedAtDesigner'), icon: 'x' as const, badgeCount: rejectedCount },
+        { href: '/admin/projects?status=Awaiting Production', label: t($locale, 'statusAwaitingProduction'), icon: 'clock' as const, badgeCount: awaitingProductionCount },
         { href: '/admin/projects?status=In Production', label: t($locale, 'inProduction'), icon: 'gear' as const },
         { href: '/admin/factory-progress', label: t($locale, 'operationsProgressNav'), icon: 'chart' as const, badgeText: t($locale, 'new') },
       ],
@@ -74,11 +77,13 @@
   $: currentFull = currentPath + decodeURIComponent($page.url.search);
   $: allNavItems = navGroups.flatMap((g) => g.items) as NavItem[];
   $: pageTitle =
-    allNavItems.find((item) => item.href === currentFull)?.label ??
-    allNavItems.find((item) => !item.href.includes('?') && item.href === currentPath)?.label ??
-    t($locale, 'overview');
+    currentPath === '/admin/search'
+      ? t($locale, 'searchResultsTitle')
+      : (allNavItems.find((item) => item.href === currentFull)?.label ??
+        allNavItems.find((item) => !item.href.includes('?') && item.href === currentPath)?.label ??
+        t($locale, 'overview'));
 </script>
 
-<AdminShell {navGroups} {pageTitle}>
+<AppShell {navGroups} {pageTitle}>
   <slot />
-</AdminShell>
+</AppShell>

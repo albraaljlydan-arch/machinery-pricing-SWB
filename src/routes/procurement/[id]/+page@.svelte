@@ -26,6 +26,7 @@
   import type { SheetRow, ProfileRow, MillRow, PipeRow, SquareRow, OrderRow, OperationRow, InvoiceRow, ProjectData, ProcurementData } from '$lib/types';
   import { computeGrandTotals } from '$lib/calc/grandTotals';
   import { seedProcurementData, blankProcurementData, readProcurementData } from '$lib/calc/procurementSeed';
+  import { logProjectEvent } from '$lib/calc/projectEvents';
   import { formatDate } from '$lib/calc/formatDate';
   import { formatNum } from '$lib/utils';
   import { locale } from '$lib/stores/locale';
@@ -159,7 +160,10 @@
       .eq('id', projectId);
     completing = false;
     if (error) toast.notify(t($locale, 'errorCompletingPrefix') + error.message, 'error');
-    else goto('/procurement');
+    else {
+      logProjectEvent(projectId, 'completed', $auth.session?.user.id, `$${formatNum(purchaseTotals.totalPrice, 2)}`);
+      goto('/procurement');
+    }
   }
 
   function reseedFromSpec() {

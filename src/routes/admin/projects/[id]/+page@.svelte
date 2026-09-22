@@ -10,6 +10,7 @@
   import { flagsToSets, setsToFlags, countFlags, type FlagSet } from '$lib/calc/reviewFlags';
   import { formatNum } from '$lib/utils';
   import { notifyUser } from '$lib/calc/notify';
+  import { logProjectEvent } from '$lib/calc/projectEvents';
   import { encodeNotification } from '$lib/i18n/notifications';
   import { toast } from '$lib/stores/toast';
   import { locale } from '$lib/stores/locale';
@@ -36,7 +37,11 @@
       goto('/admin/projects');
       return;
     }
-    project = data;
+    // projects_with_designer is a curated view with a fixed column list, so
+    // it doesn't carry render_image_url — fetched separately rather than
+    // touching that view's definition (which isn't tracked in this repo).
+    const { data: renderRow } = await supabase.from('projects').select('render_image_url').eq('id', projectId).single();
+    project = { ...data, render_image_url: renderRow?.render_image_url ?? null };
     flagSets = flagsToSets(project.project_data?.reviewFlags);
     loading = false;
   }
@@ -61,14 +66,18 @@
 
   async function handleApprove() {
     acting = true;
+    // Approval hands the project to Factory's incoming queue — Factory still
+    // has to explicitly start production (factory/projects/[id]) rather than
+    // it becoming "In Production" the instant Admin approves.
     const { error } = await supabase
       .from('projects')
-      .update({ status: 'In Production', project_data: { ...pd, reviewFlags: undefined } })
+      .update({ status: 'Awaiting Production', project_data: { ...pd, reviewFlags: undefined } })
       .eq('id', projectId);
     acting = false;
     if (error) toast.notify(t($locale, 'entryActionErrorPrefix') + error.message, 'error');
     else {
       if (project.user_id) notifyUser(project.user_id, encodeNotification('projectApproved', { name: project.project_name }), `/designer/${projectId}`);
+      logProjectEvent(projectId, 'approved', $auth.session?.user.id);
       goto('/admin/projects');
     }
   }
@@ -87,6 +96,9 @@
     if (error) toast.notify(t($locale, 'entryActionErrorPrefix') + error.message, 'error');
     else {
       if (project.user_id) notifyUser(project.user_id, encodeNotification('projectRejected', { name: project.project_name, count: flagCount }), `/designer/${projectId}`);
+      // The flagged-row count is the one durable summary of WHY it bounced —
+      // the flags themselves get cleared the next time it's approved.
+      logProjectEvent(projectId, 'rejected', $auth.session?.user.id, String(flagCount));
       goto('/admin/projects');
     }
   }
@@ -124,6 +136,13 @@
 
     {#if isPendingReview}
       <div class="hint">{t($locale, 'flagRowsHint')}</div>
+    {/if}
+
+    {#if project.render_image_url}
+      <div class="render-image-card">
+        <div class="render-image-label">{t($locale, 'renderImageLabel')}</div>
+        <img src={project.render_image_url} alt={t($locale, 'renderImageLabel')} />
+      </div>
     {/if}
 
     <div class="report-card" dir="ltr">
@@ -271,5 +290,26 @@
     border: 1px solid var(--border);
     border-radius: 8px;
     overflow: hidden;
+  }
+  .render-image-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 14px 16px;
+    margin-bottom: 16px;
+  }
+  .render-image-label {
+    font-size: 10.5px;
+    font-weight: 700;
+    color: var(--ink-soft);
+    text-transform: uppercase;
+    margin-bottom: 8px;
+  }
+  .render-image-card img {
+    max-width: 100%;
+    max-height: 420px;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    display: block;
   }
 </style>

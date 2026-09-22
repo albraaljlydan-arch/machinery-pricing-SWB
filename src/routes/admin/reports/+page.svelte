@@ -17,7 +17,7 @@
     designer_name?: string;
   }
 
-  const STATUSES = ['Draft', 'Pending Admin', 'In Production', 'Complete Production', 'Completed', 'Rejected'];
+  const STATUSES = ['Pending Admin', 'Awaiting Production', 'In Production', 'Complete Production', 'Completed', 'Rejected'];
 
   let projects: ProjectRow[] = [];
   let loading = true;
