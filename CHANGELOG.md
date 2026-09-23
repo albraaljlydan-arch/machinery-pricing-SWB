@@ -10,6 +10,43 @@ Codex, or otherwise) making a real behavior or database change should add a
 line here — this is the one place anyone opening the repo can see "what
 changed and when" without reading the code or running git log.
 
+## 2026-09-23
+
+- **دعوة الموظف ليختار كلمة مروره / Staff email invitation and self-set password**:
+  صار المصنع يرسل دعوة بريدية مع الاسم والدور دون معرفة كلمة مرور الموظف؛
+  يفتح الموظف الرابط ويختار كلمة مروره من صفحة مخصصة. تظهر رسالة واضحة
+  للرابط المنتهي، ويبقى منح الدور محصورًا بالأدوار التشغيلية داخل دالة الخادم.
+  يلزم نشر الموقع ودالة create-user والسماح برابط /accept-invite في إعدادات
+  Supabase حتى تعمل الدعوات الحية. أُضيف إعداد Worker ليعيد صفحة التطبيق
+  عند فتح رابط الدعوة مباشرة.
+  Factory now sends staff invitations without setting a password. The invited
+  user chooses one on a dedicated page, expired links show a clear message,
+  and the server still restricts Factory to operational roles. Deploy the site
+  and create-user function, then allow the /accept-invite redirect in Supabase.
+  The Worker configuration serves the app on direct invitation-link navigation.
+
+- **منع المصنع من إنشاء مدير أو مطور / Factory can no longer create Admin or Developer accounts**:
+  حُذفت الأدوار العليا من شاشة إنشاء الموظفين، وأُضيف قيد RLS على إدخال
+  الملفات الشخصية، مع مصدر متعقب لدالتي إنشاء وتعديل المستخدمين يتحقق من
+  هوية المستدعي ودوره على الخادم. يلزم نشر الدالتين وتشغيل
+  [supabase-factory-role-restriction.sql](supabase-factory-role-restriction.sql)
+  في Supabase حتى يسري المنع خارج الواجهة.
+  Factory staff can now provision operational roles only. The database policy
+  and the tracked Edge Functions enforce that rule for direct API calls as
+  well; deployment and the SQL Editor step are required for live protection.
+
+- **تحويل طلبات الشراء إلى مهام كميات فعلية / Rebuilt purchase requests as quantity-based procurement tasks**:
+  عند بدء تصنيع الماكينة تصل كل موادها تلقائيًا إلى المشتريات بكامل كمياتها؛
+  يسجّل المهندس الكمية المشتراة والمورد والسعر وموعد الوصول، ويقدر يتابعها
+  حسب الماكينة أو المورد ويؤكد الاستلام. التقدّم ينحسب تلقائيًا من الكميات
+  ويبقى متوافقًا مع تقارير الإدارة الحالية. أُضيفت جداول وRLS ودوال ذرّية
+  وتعبئة للمشاريع الموجودة في
+  [supabase-procurement-tasks.sql](supabase-procurement-tasks.sql).
+  When production starts, every material row now becomes a full-balance
+  procurement task. The engineer records bought quantities, supplier, price
+  and arrival date, can work by machine or supplier, and confirms delivery;
+  progress is quantity-derived and still feeds the existing management reports.
+
 ## 2026-09-22
 
 - **صورة مرندرة إجبارية قبل تسليم المشروع**: المصمم لازم يرفع صورة مرندرة

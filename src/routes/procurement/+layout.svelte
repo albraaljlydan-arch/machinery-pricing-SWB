@@ -13,30 +13,35 @@
   // it the same AppShell every other role gets, wired to the locale toggle
   // the same way Admin/Designer/Factory/Accounting already are.
   let readyCount = 0;
-  let inProductionCount = 0;
+  let pendingTaskCount = 0;
 
   async function loadCounts() {
     const [{ data: ready, error: e1 }, { data: inProd, error: e2 }] = await Promise.all([
       supabase.from('projects').select('status').eq('status', 'Complete Production'),
-      supabase.from('projects').select('status').eq('status', 'In Production'),
+      supabase.from('procurement_tasks').select('purchased_quantity, total_quantity'),
     ]);
     if (!e1 && ready) readyCount = ready.length;
-    if (!e2 && inProd) inProductionCount = inProd.length;
+    if (!e2 && inProd) pendingTaskCount = inProd.filter((task) => Number(task.purchased_quantity) < Number(task.total_quantity)).length;
   }
 
   // Live, not just fetched once on mount.
-  let unsubscribe: (() => void) | null = null;
+  let unsubscribeProjects: (() => void) | null = null;
+  let unsubscribeTasks: (() => void) | null = null;
   onMount(() => {
     loadCounts();
-    unsubscribe = subscribeToTable('projects', loadCounts);
+    unsubscribeProjects = subscribeToTable('projects', loadCounts);
+    unsubscribeTasks = subscribeToTable('procurement_tasks', loadCounts);
   });
-  onDestroy(() => unsubscribe?.());
+  onDestroy(() => {
+    unsubscribeProjects?.();
+    unsubscribeTasks?.();
+  });
 
   $: navGroups = [
     { section: t($locale, 'homeSection'), items: [{ href: '/procurement', label: t($locale, 'overview'), icon: 'overview' as const, badgeCount: readyCount }] },
     {
-      section: $locale === 'ar' ? 'قبل التصنيع' : 'Before Production',
-      items: [{ href: '/procurement/purchase-requests', label: t($locale, 'purchaseRequestsNav'), icon: 'clock' as const, badgeCount: inProductionCount }],
+      section: $locale === 'ar' ? 'أثناء التصنيع' : 'During Production',
+      items: [{ href: '/procurement/purchase-requests', label: t($locale, 'purchaseRequestsNav'), icon: 'clock' as const, badgeCount: pendingTaskCount }],
     },
     { section: t($locale, 'settingsAndPrices'), items: [{ href: '/procurement/material-prices', label: t($locale, 'materialPrices'), icon: 'gear' as const }] },
   ] satisfies NavGroup[];

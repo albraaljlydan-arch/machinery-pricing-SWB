@@ -40,7 +40,7 @@
   // 'developer' exemption, which per spec reaches every screen.
   $: {
     const path = $page.url.pathname;
-    if (!$auth.loading) {
+    if (!$auth.loading && path !== '/accept-invite') {
       if (!$auth.session && path !== '/login' && path !== '/signup') {
         goto('/login');
       } else if ($auth.session && $auth.userRole) {
@@ -65,7 +65,9 @@
   }
 </script>
 
-{#if $auth.loading}
+{#if $page.url.pathname === '/accept-invite'}
+  <slot />
+{:else if $auth.loading}
   <div style="min-height:100vh;display:flex;align-items:center;justify-content:center;background:var(--paper);color:var(--ink-soft);">
     Loding SWB System
   </div>

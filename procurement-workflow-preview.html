@@ -1,0 +1,153 @@
+<div id="procurement-preview">
+  <div class="pp-app" dir="rtl">
+    <aside class="pp-nav">
+      <div class="pp-logo">SWB<small>TECHNOLOGY</small></div>
+      <nav>
+        <button><i data-lucide="layout-dashboard"></i>نظرة عامة</button>
+        <button class="active"><i data-lucide="shopping-cart"></i>مهام المشتريات <b>12</b></button>
+        <button><i data-lucide="file-text"></i>ملفات الشراء</button>
+        <button><i data-lucide="receipt"></i>الفواتير</button>
+      </nav>
+      <div class="pp-person"><span>م</span><div><b>مهندس المشتريات</b><small>قسم المشتريات</small></div></div>
+    </aside>
+
+    <main class="pp-content">
+      <header class="pp-top">
+        <div><h1>مهام المشتريات</h1><p>المواد المطلوبة للماكينات التي بدأ تصنيعها</p></div>
+        <button aria-label="الإشعارات" class="pp-bell"><i data-lucide="bell"></i><span>3</span></button>
+      </header>
+
+      <section class="pp-hero">
+        <div><small>لوحة العمل اليومية</small><h2>شو لازم نشتري اليوم؟</h2><p>الرصيد يبدأ بكامل الكميات المطلوبة، وينقص تلقائيًا كلما سجّلت شراء مادة.</p></div>
+        <div class="pp-ring"><b>64%</b><span>تم تأمينه</span></div>
+      </section>
+
+      <section class="pp-stats">
+        <article><i data-lucide="factory"></i><div><small>ماكينات نشطة</small><b>3</b></div></article>
+        <article><i data-lucide="package-open"></i><div><small>بنود متبقية</small><b>12</b></div></article>
+        <article><i data-lucide="truck"></i><div><small>قيد التوريد</small><b>5</b></div></article>
+        <article><i data-lucide="check-check"></i><div><small>تأمّنت اليوم</small><b>8</b></div></article>
+      </section>
+
+      <div class="pp-heading">
+        <div><h3>قائمة الشراء</h3><p>النسبة محسوبة من الكميات، وليست إدخالًا يدويًا.</p></div>
+        <div class="pp-switch" role="tablist" aria-label="طريقة العرض">
+          <button class="active" data-view="machine" aria-selected="true">حسب الماكينة</button>
+          <button data-view="supplier" aria-selected="false">حسب المورد</button>
+        </div>
+      </div>
+
+      <div data-panel="machine">
+        <article class="pp-machine">
+          <header>
+            <span class="pp-cog"><i data-lucide="cog"></i></span>
+            <div class="pp-machine-name"><small>الماكينة</small><h3>خط تعبئة أوتوماتيكي #04</h3><p>بدأ التصنيع منذ 4 أيام</p></div>
+            <div class="pp-total"><div><span>المؤمّن</span><b>68%</b></div><div class="pp-progress"><i style="width:68%"></i></div></div>
+          </header>
+          <div class="pp-category"><i data-lucide="layers-3"></i><b>صفائح ومقاطع</b><span>2 من 3 بنود مؤمّنة</span></div>
+          <div class="pp-rows">
+            <div class="pp-row selected">
+              <span class="pp-state wait"><i data-lucide="clock-3"></i></span>
+              <div class="pp-info"><b>صاج Stainless 304 — سماكة 2 mm</b><small>3000 × 1500 mm · المطلوب 10 ألواح</small></div>
+              <div class="pp-qty"><small>المتبقي</small><b>6 <em>/ 10</em></b></div>
+              <div class="pp-small-progress"><div><i style="width:40%"></i></div><span>40%</span></div>
+              <button class="pp-buy" data-open><i data-lucide="minus"></i>تسجيل شراء</button>
+            </div>
+            <div class="pp-row">
+              <span class="pp-state transit"><i data-lucide="truck"></i></span>
+              <div class="pp-info"><b>بروفيل مربع Stainless 304</b><small>40 × 40 × 2 mm · المورد: الشام للمعادن</small></div>
+              <div class="pp-qty"><small>قيد التوريد</small><b>8 <em>/ 8</em></b></div>
+              <span class="pp-pill transit">يصل الخميس</span>
+            </div>
+            <div class="pp-row done">
+              <span class="pp-state complete"><i data-lucide="check"></i></span>
+              <div class="pp-info"><b>رولمان 6205ZZ — SKF</b><small>تم شراء كامل الكمية</small></div>
+              <div class="pp-qty"><small>تم التأمين</small><b>24 <em>/ 24</em></b></div>
+              <span class="pp-pill complete">مكتمل</span>
+            </div>
+          </div>
+          <div class="pp-category"><i data-lucide="package"></i><b>طلبات جاهزة</b><span>1 من 2 بنود مؤمّنة</span></div>
+          <div class="pp-rows">
+            <div class="pp-row">
+              <span class="pp-state wait"><i data-lucide="clock-3"></i></span>
+              <div class="pp-info"><b>محرك كهربائي 3KW</b><small>380V · 1450 RPM · المطلوب 2</small></div>
+              <div class="pp-qty"><small>المتبقي</small><b>2 <em>/ 2</em></b></div>
+              <div class="pp-small-progress"><div></div><span>0%</span></div>
+              <button class="pp-buy"><i data-lucide="minus"></i>تسجيل شراء</button>
+            </div>
+          </div>
+        </article>
+
+        <article class="pp-machine collapsed">
+          <header>
+            <span class="pp-cog purple"><i data-lucide="cog"></i></span>
+            <div class="pp-machine-name"><small>الماكينة</small><h3>ماكينة تغليف حراري #07</h3><p>8 بنود شراء · 3 متبقية</p></div>
+            <div class="pp-total"><div><span>المؤمّن</span><b>81%</b></div><div class="pp-progress"><i style="width:81%"></i></div></div>
+            <i data-lucide="chevron-down"></i>
+          </header>
+        </article>
+      </div>
+
+      <div data-panel="supplier" hidden>
+        <div class="pp-note"><i data-lucide="info"></i>هذا العرض يجمع مواد عدة ماكينات في طلبية واحدة لكل مورد.</div>
+        <article class="pp-supplier">
+          <header><div><small>المورد</small><h3>الشام للمعادن</h3><p>3 ماكينات · 7 بنود</p></div><b>$4,280</b></header>
+          <div><span>صاج Stainless 304 — 2 mm</span><b>16 لوح</b><small>ماكينتان</small><button>فتح الطلبية</button></div>
+          <div><span>بروفيل مربع 40 × 40</span><b>22 بار</b><small>3 ماكينات</small><button>فتح الطلبية</button></div>
+        </article>
+        <article class="pp-supplier">
+          <header><div><small>المورد</small><h3>مركز المحركات الصناعية</h3><p>ماكينتان · 3 بنود</p></div><b>$1,750</b></header>
+          <div><span>محرك 3KW — 380V</span><b>4 قطع</b><small>ماكينتان</small><button>فتح الطلبية</button></div>
+        </article>
+      </div>
+
+      <div class="pp-shade" hidden></div>
+      <aside class="pp-drawer" hidden>
+        <header><div><small>خط تعبئة أوتوماتيكي #04</small><h3>تسجيل شراء اليوم</h3></div><button data-close aria-label="إغلاق"><i data-lucide="x"></i></button></header>
+        <div class="pp-product"><i data-lucide="layers-3"></i><div><b>صاج Stainless 304</b><small>3000 × 1500 × 2 mm</small></div></div>
+        <div class="pp-balance"><div><small>المطلوب</small><b>10</b></div><div><small>تم شراؤه</small><b>4</b></div><div><small>المتبقي</small><b>6</b></div></div>
+        <label>الكمية المشتراة اليوم<input type="number" value="2" min="1" max="6"></label>
+        <label>المورد<select><option>الشام للمعادن</option><option>إضافة مورد جديد…</option></select></label>
+        <div class="pp-formrow"><label>سعر الوحدة<input value="$120"></label><label>موعد الوصول<input type="date" value="2026-09-24"></label></div>
+        <label>ملاحظة<textarea rows="3" placeholder="رقم العرض أو أي تفاصيل…"></textarea></label>
+        <div class="pp-after"><span>بعد الحفظ يصبح المتبقي</span><b>4 من 10</b><div class="pp-progress"><i style="width:60%"></i></div></div>
+        <button class="pp-confirm"><i data-lucide="check"></i>تأكيد تسجيل الشراء</button>
+      </aside>
+    </main>
+  </div>
+</div>
+
+<style>
+#procurement-preview{--bg:light-dark(#f4f7fa,#101820);--panel:light-dark(#fff,#19232d);--soft:light-dark(#edf2f6,#222e39);--text:light-dark(#152b3e,#ecf2f7);--muted:light-dark(#6f8191,#a7b5c1);--border:light-dark(#dce4ea,#30404d);--navy:light-dark(#153d60,#286f9f);--teal:light-dark(#168675,#3ab49e);--amber:light-dark(#b8760b,#e6a83b);--purple:light-dark(#7657b3,#aa8ee1);--green:light-dark(#208263,#45b88f);font-family:Arial,"Noto Sans Arabic",sans-serif;color:var(--text);color-scheme:light dark}
+#procurement-preview *{box-sizing:border-box}#procurement-preview button,#procurement-preview input,#procurement-preview select,#procurement-preview textarea{font:inherit}
+.pp-app{display:grid;grid-template-columns:185px 1fr;min-height:810px;background:var(--bg);border-radius:16px;overflow:hidden;box-shadow:0 15px 45px light-dark(rgba(20,40,60,.12),rgba(0,0,0,.3))}
+.pp-nav{background:var(--navy);color:#fff;padding:22px 13px;display:flex;flex-direction:column;gap:28px}.pp-logo{font-size:24px;font-weight:800;letter-spacing:4px;text-align:center}.pp-logo small{display:block;font-size:7px;letter-spacing:2px;opacity:.65}.pp-nav nav{display:flex;flex-direction:column;gap:5px}.pp-nav nav button{display:flex;align-items:center;gap:8px;border:0;background:transparent;color:rgba(255,255,255,.72);padding:10px;border-radius:8px;font-size:11px;text-align:right}.pp-nav nav button.active{background:rgba(255,255,255,.14);color:#fff}.pp-nav nav button b{margin-right:auto;background:#e79d32;border-radius:20px;padding:2px 6px;font-size:8px}.pp-nav svg{width:15px}.pp-person{margin-top:auto;padding-top:14px;border-top:1px solid rgba(255,255,255,.15);display:flex;align-items:center;gap:8px}.pp-person>span{width:29px;height:29px;border-radius:50%;display:grid;place-items:center;background:rgba(255,255,255,.15)}.pp-person div{display:flex;flex-direction:column}.pp-person b{font-size:9px}.pp-person small{font-size:7px;opacity:.65}
+.pp-content{position:relative;min-width:0;padding:19px 22px 25px}.pp-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px}.pp-top h1{margin:0;font-size:19px}.pp-top p{margin:3px 0 0;color:var(--muted);font-size:10px}.pp-bell{position:relative;width:33px;height:33px;border:1px solid var(--border);background:var(--panel);color:var(--text);border-radius:8px}.pp-bell svg{width:15px}.pp-bell span{position:absolute;top:-5px;left:-4px;width:15px;height:15px;border-radius:50%;display:grid;place-items:center;background:#d75e47;color:#fff;font-size:7px}
+.pp-hero{display:flex;align-items:center;justify-content:space-between;background:linear-gradient(120deg,var(--navy),color-mix(in srgb,var(--navy) 62%,var(--teal)));color:#fff;border-radius:13px;padding:17px 22px}.pp-hero small{font-size:8px;color:#7dddd2}.pp-hero h2{font-size:18px;margin:4px 0}.pp-hero p{margin:0;font-size:9px;color:rgba(255,255,255,.72)}.pp-ring{width:68px;height:68px;border-radius:50%;display:grid;place-content:center;text-align:center;background:radial-gradient(circle 25px,var(--navy) 96%,transparent 100%),conic-gradient(#55cebb 64%,rgba(255,255,255,.16) 0)}.pp-ring b{font-size:14px}.pp-ring span{font-size:7px;opacity:.72}
+.pp-stats{display:grid;grid-template-columns:repeat(4,1fr);gap:9px;margin:11px 0 18px}.pp-stats article{display:flex;align-items:center;gap:8px;background:var(--panel);border:1px solid var(--border);border-radius:9px;padding:10px}.pp-stats article>svg{width:28px;height:28px;padding:7px;border-radius:7px;background:var(--soft);color:var(--teal)}.pp-stats article:nth-child(2)>svg{color:var(--amber)}.pp-stats article:nth-child(3)>svg{color:var(--purple)}.pp-stats article div{display:flex;flex-direction:column}.pp-stats small{font-size:8px;color:var(--muted)}.pp-stats b{font-size:15px}
+.pp-heading{display:flex;align-items:end;justify-content:space-between;margin-bottom:9px}.pp-heading h3{font-size:13px;margin:0}.pp-heading p{font-size:8px;color:var(--muted);margin:3px 0 0}.pp-switch{display:flex;padding:3px;border:1px solid var(--border);background:var(--panel);border-radius:8px}.pp-switch button{border:0;background:transparent;color:var(--muted);padding:6px 9px;border-radius:6px;font-size:8px}.pp-switch button.active{background:var(--navy);color:#fff}
+.pp-machine,.pp-supplier{background:var(--panel);border:1px solid var(--border);border-radius:11px;overflow:hidden;margin-bottom:9px}.pp-machine>header{display:flex;align-items:center;gap:9px;padding:11px 13px;border-bottom:1px solid var(--border)}.pp-cog{width:31px;height:31px;border-radius:8px;display:grid;place-items:center;color:#377cb5;background:color-mix(in srgb,#377cb5 15%,transparent)}.pp-cog.purple{color:var(--purple);background:color-mix(in srgb,var(--purple) 15%,transparent)}.pp-cog svg{width:16px}.pp-machine-name{flex:1}.pp-machine-name small{font-size:7px;color:var(--muted)}.pp-machine-name h3{font-size:11px;margin:1px 0}.pp-machine-name p{font-size:7px;color:var(--muted);margin:0}.pp-total{width:145px}.pp-total>div:first-child{display:flex;justify-content:space-between;font-size:8px;color:var(--muted);margin-bottom:4px}.pp-total b{color:var(--teal)}.pp-progress{height:4px;background:var(--soft);border-radius:8px;overflow:hidden}.pp-progress i{display:block;height:100%;background:var(--teal)}
+.pp-category{display:flex;align-items:center;gap:6px;padding:7px 14px;background:var(--soft);font-size:8px}.pp-category svg{width:12px;color:var(--muted)}.pp-category span{margin-right:auto;color:var(--muted);font-size:7px}.pp-rows{padding:0 13px}.pp-row{display:flex;align-items:center;gap:8px;padding:9px 0;border-bottom:1px solid var(--border)}.pp-row:last-child{border-bottom:0}.pp-state{width:22px;height:22px;border-radius:50%;display:grid;place-items:center}.pp-state svg{width:11px}.pp-state.wait{color:var(--amber);background:color-mix(in srgb,var(--amber) 15%,transparent)}.pp-state.transit{color:var(--purple);background:color-mix(in srgb,var(--purple) 15%,transparent)}.pp-state.complete{color:var(--green);background:color-mix(in srgb,var(--green) 15%,transparent)}.pp-info{flex:1;min-width:0;display:flex;flex-direction:column}.pp-info b{font-size:9px}.pp-info small{font-size:7px;color:var(--muted);margin-top:2px}.done .pp-info b{text-decoration:line-through;color:var(--muted)}.pp-qty{min-width:58px;display:flex;flex-direction:column;text-align:center}.pp-qty small{font-size:7px;color:var(--muted)}.pp-qty b{font-size:10px}.pp-qty em{font-size:7px;font-style:normal;color:var(--muted);font-weight:400}.pp-small-progress{display:flex;align-items:center;gap:4px;width:70px}.pp-small-progress>div{height:4px;flex:1;background:var(--soft);border-radius:8px;overflow:hidden}.pp-small-progress i{display:block;height:100%;background:var(--teal)}.pp-small-progress span{font-size:7px;color:var(--muted)}.pp-buy{display:flex;align-items:center;gap:3px;border:0;background:var(--navy);color:#fff;border-radius:6px;padding:6px 8px;font-size:7px}.pp-buy svg{width:10px}.pp-pill{min-width:65px;text-align:center;padding:4px 7px;border-radius:20px;font-size:7px}.pp-pill.transit{color:var(--purple);background:color-mix(in srgb,var(--purple) 14%,transparent)}.pp-pill.complete{color:var(--green);background:color-mix(in srgb,var(--green) 14%,transparent)}.collapsed>header{border-bottom:0}.collapsed header>svg{width:14px;color:var(--muted)}
+.pp-note{display:flex;align-items:center;gap:6px;background:color-mix(in srgb,#377cb5 10%,transparent);color:#377cb5;padding:9px 11px;border-radius:8px;font-size:8px;margin-bottom:9px}.pp-note svg{width:13px}.pp-supplier>header{display:flex;align-items:center;justify-content:space-between;padding:11px 13px;background:var(--soft)}.pp-supplier header div{display:flex;flex-direction:column}.pp-supplier header small,.pp-supplier header p{font-size:7px;color:var(--muted);margin:0}.pp-supplier header h3{font-size:11px;margin:2px 0}.pp-supplier header>b{font-size:12px;color:var(--teal)}.pp-supplier>div{display:grid;grid-template-columns:1fr 70px 60px auto;gap:8px;align-items:center;padding:9px 13px;border-top:1px solid var(--border);font-size:8px}.pp-supplier>div small{color:var(--muted)}.pp-supplier>div button{border:1px solid var(--border);background:var(--panel);color:var(--text);border-radius:5px;padding:5px;font-size:7px}
+.pp-shade{position:absolute;inset:0;background:rgba(8,18,27,.35);z-index:3}.pp-drawer{position:absolute;z-index:4;top:0;left:0;width:315px;height:100%;background:var(--panel);padding:17px;box-shadow:12px 0 30px rgba(0,0,0,.2)}.pp-drawer>header{display:flex;justify-content:space-between;align-items:start;border-bottom:1px solid var(--border);padding-bottom:11px}.pp-drawer header small{font-size:7px;color:var(--muted)}.pp-drawer header h3{font-size:14px;margin:3px 0}.pp-drawer header button{border:0;background:var(--soft);color:var(--text);width:27px;height:27px;border-radius:6px}.pp-drawer header svg{width:13px}.pp-product{display:flex;align-items:center;gap:8px;padding:12px 0}.pp-product>svg{width:32px;height:32px;padding:8px;border-radius:7px;background:var(--soft);color:#377cb5}.pp-product div{display:flex;flex-direction:column}.pp-product b{font-size:9px}.pp-product small{font-size:7px;color:var(--muted)}.pp-balance{display:grid;grid-template-columns:repeat(3,1fr);background:var(--soft);border-radius:8px;padding:9px;margin-bottom:12px}.pp-balance div{display:flex;flex-direction:column;text-align:center;border-left:1px solid var(--border)}.pp-balance div:last-child{border:0}.pp-balance small{font-size:7px;color:var(--muted)}.pp-balance b{font-size:13px}.pp-drawer label{display:flex;flex-direction:column;gap:4px;font-size:8px;color:var(--muted);margin-bottom:9px}.pp-drawer input,.pp-drawer select,.pp-drawer textarea{border:1px solid var(--border);background:var(--bg);color:var(--text);border-radius:6px;padding:7px;font-size:9px}.pp-formrow{display:grid;grid-template-columns:1fr 1fr;gap:7px}.pp-after{padding:9px;border-radius:7px;background:color-mix(in srgb,var(--teal) 10%,transparent);margin-bottom:11px}.pp-after span{font-size:7px;color:var(--muted)}.pp-after>b{float:left;font-size:9px;color:var(--teal)}.pp-after .pp-progress{clear:both;margin-top:6px}.pp-confirm{width:100%;display:flex;justify-content:center;align-items:center;gap:4px;border:0;background:var(--teal);color:#fff;padding:9px;border-radius:7px;font-size:9px}.pp-confirm svg{width:12px}
+@media(max-width:740px){.pp-app{grid-template-columns:1fr}.pp-nav{display:none}.pp-content{padding:13px}.pp-stats{grid-template-columns:repeat(2,1fr)}.pp-total{width:105px}.pp-row{flex-wrap:wrap}.pp-info{min-width:calc(100% - 34px)}.pp-qty{margin-right:30px}.pp-drawer{width:min(315px,100%)}.pp-supplier>div{grid-template-columns:1fr auto}.pp-supplier>div small{display:none}}
+</style>
+
+<script>
+(() => {
+  const root=document.getElementById('procurement-preview');
+  if(!root)return;
+  const buttons=root.querySelectorAll('[data-view]');
+  const panels=root.querySelectorAll('[data-panel]');
+  buttons.forEach(button=>button.addEventListener('click',()=>{
+    buttons.forEach(item=>{const active=item===button;item.classList.toggle('active',active);item.setAttribute('aria-selected',String(active));});
+    panels.forEach(panel=>panel.hidden=panel.dataset.panel!==button.dataset.view);
+  }));
+  const drawer=root.querySelector('.pp-drawer');
+  const shade=root.querySelector('.pp-shade');
+  const toggle=open=>{drawer.hidden=!open;shade.hidden=!open;};
+  root.querySelector('[data-open]')?.addEventListener('click',()=>toggle(true));
+  root.querySelector('[data-close]')?.addEventListener('click',()=>toggle(false));
+  shade?.addEventListener('click',()=>toggle(false));
+})();
+</script>

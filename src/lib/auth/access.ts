@@ -43,8 +43,8 @@ const SECTION_OWNER: Record<string, UserRole> = {
 
 /** Paths that belong to no section and are open to any signed-in user (the
  *  root redirector and the sign-in screen itself), or to a signed-out visitor
- *  (the customer self-registration screen). */
-const NEUTRAL_PATHS = new Set(['/', '/login', '/signup']);
+ *  (the customer self-registration and staff invitation screens). */
+const NEUTRAL_PATHS = new Set(['/', '/login', '/signup', '/accept-invite']);
 
 /** 'developer' is exempt from the section check by existing spec: it is a
  *  technical role that can reach and use any screen. It still has no

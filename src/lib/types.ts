@@ -292,6 +292,41 @@ export interface PurchaseRequestRow {
   created_at: string;
 }
 
+
+export type ProcurementTaskCategory = 'sheets' | 'profiles' | 'mills' | 'pipes' | 'squares' | 'orders';
+
+export interface ProcurementTask {
+  id: string;
+  project_id: string;
+  project_name_snapshot: string;
+  source_category: ProcurementTaskCategory;
+  source_row_id: string;
+  item_name: string;
+  details: string | null;
+  source_data: Record<string, unknown>;
+  unit_label: string;
+  total_quantity: number;
+  purchased_quantity: number;
+  received_quantity: number;
+  created_at: string;
+  completed_at: string | null;
+}
+
+export interface ProcurementTaskUpdate {
+  id: string;
+  task_id: string;
+  project_id: string;
+  quantity: number;
+  supplier: string;
+  unit_price: number | null;
+  expected_arrival_date: string | null;
+  received_at: string | null;
+  notes: string | null;
+  work_date: string;
+  logged_by: string;
+  created_at: string;
+}
+
 export interface Project {
   id: string;
   user_id?: string;
