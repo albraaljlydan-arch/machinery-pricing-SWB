@@ -99,11 +99,11 @@
   });
   $: isCompleted = project?.status === 'Completed';
 
-  function opStatusText(s: string) {
-    if (s === 'approved') return t($locale, 'approvalStatusApproved');
-    if (s === 'rejected') return t($locale, 'approvalStatusRejected');
-    return t($locale, 'approvalStatusPending');
-  }
+  // Reactive so the label follows a language switch without a reload.
+  $: opStatusText = (s: string) =>
+    s === 'approved' ? t($locale, 'approvalStatusApproved')
+      : s === 'rejected' ? t($locale, 'approvalStatusRejected')
+        : t($locale, 'approvalStatusPending');
 </script>
 
 <div class="page">

@@ -28,6 +28,13 @@ export const SHEET_THICKNESS_RANGES: { id: 'thin' | 'mid' | 'thick'; label: stri
 ];
 export type SheetThicknessRangeId = 'thin' | 'mid' | 'thick';
 
+/** The band a sheet of this thickness falls in: the first whose limit is at
+ *  least the thickness, else the open-ended band. Bands must be sorted. */
+export const findSheetBand = <T extends { upToMm: number | null }>(bands: T[], thickness: number): T | undefined => {
+  const t = Number.isFinite(thickness) ? thickness : 0;
+  return bands.find((band) => band.upToMm === null || t <= band.upToMm) ?? bands[bands.length - 1];
+};
+
 export const getSheetThicknessRange = (thickness: number): SheetThicknessRangeId => {
   const t = Number.isFinite(thickness) ? thickness : 0;
   return (SHEET_THICKNESS_RANGES.find((r) => r.test(t)) ?? SHEET_THICKNESS_RANGES[2]).id;
@@ -36,8 +43,18 @@ export const getSheetThicknessRange = (thickness: number): SheetThicknessRangeId
 export type CategoryPriceMap = Record<string, MaterialPriceItem>;                          // materialId → price
 export type SheetPriceMap = Record<string, Record<SheetThicknessRangeId, MaterialPriceItem>>; // materialId → range → price
 
+/** One sheet thickness band from the database: covers thicknesses above the
+ *  previous band's limit up to `upToMm`; `null` is the last, open-ended band. */
+export interface SheetBandPrices {
+  upToMm: number | null;
+  prices: CategoryPriceMap;
+}
+
 export interface MaterialPricesTable {
   sheet: SheetPriceMap;
+  /** Procurement's configurable bands, sorted by limit (open band last).
+   *  When present they replace the fixed `sheet` ranges above. */
+  sheetBands?: SheetBandPrices[];
   profile: CategoryPriceMap;
   mill: CategoryPriceMap;
   pipe: CategoryPriceMap;
@@ -348,7 +365,16 @@ export const normalizeMaterialPricesTable = (parsed: any): MaterialPricesTable =
   return table;
 };
 
+// Prices Procurement maintains in the database (material_category_prices),
+// loaded at sign-in by lib/calc/materialPrices.ts. When present they win over
+// this browser's own saved copy, so every designer prices with the same table.
+let sharedMaterialPrices: MaterialPricesTable | null = null;
+export const setSharedMaterialPrices = (table: MaterialPricesTable | null): void => {
+  sharedMaterialPrices = table;
+};
+
 export const getSavedMaterialPrices = (): MaterialPricesTable => {
+  if (sharedMaterialPrices) return sharedMaterialPrices;
   try {
     const saved = localStorage.getItem(MATERIAL_PRICES_KEY);
     if (!saved) return getDefaultMaterialPrices();
@@ -453,8 +479,8 @@ export const importPricesFromFile = (file: File): Promise<MaterialPricesTable> =
 
 /**
  * Returns the price per kg for a row.
- * Priority: explicit field on row → localStorage (per category, and per
- * thickness band for sheet) → MATERIALS default
+ * Priority: explicit field on row → shared database prices (per category),
+ * else this browser's saved copy → MATERIALS default
  */
 export const getRowPricePerKg = (
   row: any,
@@ -468,10 +494,12 @@ export const getRowPricePerKg = (
   const explicitPrice = parseFloat(row.pricePerKg ?? row.price ?? '');
   if (!isNaN(explicitPrice) && explicitPrice > 0) return explicitPrice;
 
-  // 2. Saved prices from localStorage (Settings), scoped to this category
+  // 2. Shared database prices (or this browser's saved copy), scoped to this category
   const prices = customPricesTable ?? getSavedMaterialPrices();
   let savedItem: MaterialPriceItem | undefined;
-  if (category === 'sheet') {
+  if (category === 'sheet' && prices.sheetBands?.length) {
+    savedItem = findSheetBand(prices.sheetBands, sanitizeNum(row.thickness))?.prices[row.materialId];
+  } else if (category === 'sheet') {
     const range = getSheetThicknessRange(sanitizeNum(row.thickness));
     savedItem = prices.sheet?.[row.materialId]?.[range];
   } else {

@@ -9,6 +9,7 @@
   // ==========================================================================
   import { supabase } from '$lib/supabaseClient';
   import { locale } from '$lib/stores/locale';
+  import { theme } from '$lib/stores/theme';
   import { t } from '$lib/i18n/dict';
   import logoUrl from '$lib/assets/logo.svg';
 
@@ -31,13 +32,24 @@
 </script>
 
 <div class="login-page">
-  <div class="lang-switch">
-    <button class:active={$locale === 'ar'} on:click={() => locale.set('ar')}>العربية</button>
-    <button class:active={$locale === 'en'} on:click={() => locale.set('en')}>English</button>
+  <!-- Pinned to the physical left and laid out LTR so the controls never
+       jump sides when the language flips the page direction. -->
+  <div class="corner-controls" dir="ltr">
+    <div class="lang-switch">
+      <button class:active={$locale === 'ar'} on:click={() => locale.set('ar')}>العربية</button>
+      <button class:active={$locale === 'en'} on:click={() => locale.set('en')}>English</button>
+    </div>
+    <button class="theme-btn" on:click={() => theme.set($theme === 'light' ? 'dark' : 'light')} aria-label={$theme === 'light' ? t($locale, 'darkMode') : t($locale, 'lightMode')} title={$theme === 'light' ? t($locale, 'darkMode') : t($locale, 'lightMode')}>
+      {#if $theme === 'light'}
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8Z" /></svg>
+      {:else}
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4" /><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4" /></svg>
+      {/if}
+    </button>
   </div>
 
   <div class="brand">
-    <div class="logo-card"><img src={logoUrl} alt="SWB Technology" /></div>
+    <img class="logo" src={logoUrl} alt="SWB Technology" />
     <div class="brand-name">SWB Manufacturing System</div>
   </div>
 
@@ -82,10 +94,37 @@
     box-sizing: border-box;
   }
 
-  .lang-switch {
-    position: absolute;
+  .corner-controls {
+    position: fixed;
     top: 20px;
-    inset-inline-end: 20px;
+    left: 20px;
+    z-index: 10;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .theme-btn {
+    width: 38px;
+    height: 38px;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid var(--border);
+    background: var(--card);
+    color: var(--ink-soft);
+    cursor: pointer;
+    transition: color 0.15s ease, transform 0.15s ease;
+  }
+  .theme-btn:hover {
+    color: var(--navy-3);
+    transform: translateY(-1px);
+  }
+  .theme-btn svg {
+    width: 18px;
+    height: 18px;
+  }
+  .lang-switch {
     display: flex;
     border: 1px solid var(--border);
     border-radius: 10px;
@@ -112,23 +151,15 @@
     align-items: center;
     gap: 16px;
   }
-  .logo-card {
-    /* Stays white in both themes on purpose: the logo artwork is a dark mark
-       with no light variant, so it needs a light plate behind it. */
-    background: #ffffff;
-    border: 1px solid var(--border);
-    border-radius: 14px;
-    padding: 14px 22px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    box-shadow: var(--shadow);
-  }
-  .logo-card img {
-    height: 60px;
-    width: auto;
-    object-fit: contain;
+  .logo {
     display: block;
+    width: min(360px, 80vw);
+    height: auto;
+  }
+  /* Same treatment as the sidebar logo: the mark is dark navy, so it is
+     lifted in dark mode instead of sitting on a white plate. */
+  :global(html[data-theme='dark']) .logo {
+    filter: brightness(1.7);
   }
   .brand-name {
     font-family: var(--font-en);

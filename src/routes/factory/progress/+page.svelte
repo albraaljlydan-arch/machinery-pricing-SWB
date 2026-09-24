@@ -162,11 +162,11 @@
     return latest ? Math.min(100, Math.round(Number(latest.cumulative_percent || 0))) : 0;
   }
 
-  function statusText(s: string) {
-    if (s === 'approved') return t($locale, 'approvalStatusApproved');
-    if (s === 'rejected') return t($locale, 'approvalStatusRejected');
-    return t($locale, 'approvalStatusPending');
-  }
+  // Reactive so the label follows a language switch without a reload.
+  $: statusText = (s: string) =>
+    s === 'approved' ? t($locale, 'approvalStatusApproved')
+      : s === 'rejected' ? t($locale, 'approvalStatusRejected')
+        : t($locale, 'approvalStatusPending');
 
   $: machineOptions = Array.from(
     new Map(

@@ -2,11 +2,14 @@ import { writable } from 'svelte/store';
 import type { Session } from '@supabase/supabase-js';
 import { supabase } from '../supabaseClient';
 import type { UserRole } from '../types';
+import { startSharedMaterialPrices, stopSharedMaterialPrices } from '../calc/materialPrices';
 
 export interface AuthState {
   loading: boolean;
   session: Session | null;
   userRole: UserRole | null;
+  // Shown on the sidebar user card and the Settings page.
+  fullName: string;
   profileError: string | null;
 }
 
@@ -15,6 +18,7 @@ function createAuthStore() {
     loading: true,
     session: null,
     userRole: null,
+    fullName: '',
     profileError: null,
   });
 
@@ -31,7 +35,10 @@ function createAuthStore() {
   async function fetchUserProfile(user: { id: string; user_metadata?: Record<string, unknown> }) {
     const userId = user.id;
     activeUserId = userId;
-    let { data, error } = await supabase.from('profiles').select('role').eq('id', userId).single();
+    // Loaded alongside the role so the calculator already has Procurement's
+    // prices when it first opens. A failure only means fallback prices.
+    const pricesReady = startSharedMaterialPrices().catch((e) => console.error('Could not load material prices:', e));
+    let { data, error } = await supabase.from('profiles').select('role, full_name').eq('id', userId).single();
     let insertErrorMessage: string | null = null;
 
     // Self-registered customers have no profiles row created by staff — the
@@ -46,7 +53,7 @@ function createAuthStore() {
         .from('profiles')
         .insert({ id: userId, full_name: meta.full_name ?? '', role: 'customer', company_name: meta.company_name ?? null, phone: meta.phone ?? null });
       if (!insertError) {
-        ({ data, error } = await supabase.from('profiles').select('role').eq('id', userId).single());
+        ({ data, error } = await supabase.from('profiles').select('role, full_name').eq('id', userId).single());
       } else {
         insertErrorMessage = insertError.message;
         console.error('Could not create customer profile row:', insertError);
@@ -56,6 +63,7 @@ function createAuthStore() {
     // The person may have signed out (or into a different account) while
     // this request was in flight — a stale response must never overwrite
     // whatever the CURRENT session actually is.
+    await pricesReady;
     if (activeUserId !== userId) return;
 
     if (error || !data) {
@@ -66,7 +74,7 @@ function createAuthStore() {
       update((s) => ({ ...s, loading: false, profileError: detail ? `Could not load your account role: ${detail}` : 'Could not load your account role. Please contact an admin.' }));
       return;
     }
-    update((s) => ({ ...s, loading: false, userRole: data.role as UserRole, profileError: null }));
+    update((s) => ({ ...s, loading: false, userRole: data.role as UserRole, fullName: data.full_name ?? '', profileError: null }));
   }
 
   function init() {
@@ -82,7 +90,8 @@ function createAuthStore() {
   function handleSession(newSession: Session | null) {
     if (!newSession) {
       activeUserId = null;
-      set({ loading: false, session: null, userRole: null, profileError: null });
+      stopSharedMaterialPrices();
+      set({ loading: false, session: null, userRole: null, fullName: '', profileError: null });
       return;
     }
 
@@ -96,7 +105,7 @@ function createAuthStore() {
       return;
     }
 
-    update((s) => ({ ...s, session: newSession, loading: true, userRole: null, profileError: null }));
+    update((s) => ({ ...s, session: newSession, loading: true, userRole: null, fullName: '', profileError: null }));
     fetchUserProfile(newSession.user);
   }
 

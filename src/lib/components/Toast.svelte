@@ -8,7 +8,7 @@
   {#key $toast.id}
     <div class="toast-wrap">
       <div class="toast" class:error={$toast.kind === 'error'} class:success={$toast.kind === 'success'}>
-        {#if $toast.isUndo}
+        {#if $toast.isUndo || $toast.actionLabel}
           <div class="toast-ring">
             <svg viewBox="0 0 36 36" class="ring-svg">
               <circle cx="18" cy="18" r="15.5" fill="none" stroke="rgba(255,255,255,0.15)" stroke-width="3" />
@@ -40,6 +40,9 @@
         <div class="toast-msg">{$toast.message}</div>
         {#if $toast.isUndo}
           <button class="toast-undo" on:click={() => toast.cancelUndo()}>{t($locale, 'toastUndo')}</button>
+        {:else if $toast.actionLabel}
+          <button class="toast-undo" on:click={() => toast.runOfferedAction()}>{$toast.actionLabel}</button>
+          <button class="toast-close" on:click={() => toast.dismiss()} aria-label={t($locale, 'toastClose')}>✕</button>
         {:else}
           <button class="toast-close" on:click={() => toast.dismiss()} aria-label={t($locale, 'toastClose')}>✕</button>
         {/if}

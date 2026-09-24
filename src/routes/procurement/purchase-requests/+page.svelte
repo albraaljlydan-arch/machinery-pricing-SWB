@@ -11,7 +11,7 @@
   let tasks: ProcurementTask[] = [];
   let updates: ProcurementTaskUpdate[] = [];
   let loading = true;
-  let loadError = '';
+  let loadError = false;
   let view: 'machine' | 'supplier' = 'machine';
   let selected: ProcurementTask | null = null;
   let saving = false;
@@ -25,16 +25,18 @@
 
   const today = new Date().toISOString().slice(0, 10);
   const categoryOrder: ProcurementTaskCategory[] = ['sheets', 'profiles', 'mills', 'pipes', 'squares', 'orders'];
-  const tr = (ar: string, en: string) => $locale === 'ar' ? ar : en;
+  // Reactive so every label re-renders when the language is switched; a
+  // plain const kept the first language until the page was reloaded.
+  $: tr = (ar: string, en: string) => $locale === 'ar' ? ar : en;
 
   async function load() {
     loading = tasks.length === 0;
-    loadError = '';
+    loadError = false;
     const [taskRes, updateRes] = await Promise.all([
       supabase.from('procurement_tasks').select('*').order('project_name_snapshot').order('created_at'),
       supabase.from('procurement_task_updates').select('*').order('created_at', { ascending: false }).limit(200),
     ]);
-    if (taskRes.error) loadError = tr('تعذّر تحميل المهام. شغّل ملف supabase-procurement-tasks.sql أولًا.', 'Could not load tasks. Run supabase-procurement-tasks.sql first.');
+    if (taskRes.error) loadError = true;
     else tasks = (taskRes.data || []).map((row: any) => ({ ...row, source_data: row.source_data || {}, total_quantity: Number(row.total_quantity), purchased_quantity: Number(row.purchased_quantity), received_quantity: Number(row.received_quantity) }));
     if (!updateRes.error) updates = (updateRes.data || []).map((row: any) => ({ ...row, quantity: Number(row.quantity), unit_price: row.unit_price === null ? null : Number(row.unit_price) }));
     loading = false;
@@ -83,7 +85,7 @@
   }
   function taskFor(update: ProcurementTaskUpdate) { return tasks.find((task) => task.id === update.task_id); }
   function latest(taskId: string) { return updates.find((row) => row.task_id === taskId); }
-  function money(value: number) { return new Intl.NumberFormat($locale === 'ar' ? 'ar' : 'en', { style: 'currency', currency: 'USD' }).format(value); }
+  $: money = (value: number) => new Intl.NumberFormat($locale === 'ar' ? 'ar' : 'en', { style: 'currency', currency: 'USD' }).format(value);
 
   function openPurchase(task: ProcurementTask) {
     selected = task;
@@ -120,7 +122,7 @@
 </script>
 
 <section class="hero">
-  <div><small>{tr('مساحة عمل المشتريات', 'PROCUREMENT WORKSPACE')}</small><h2>{tr('شو لازم نشتري اليوم؟', 'What needs buying today?')}</h2><p>{tr('الكميات تصل تلقائيًا عند بدء التصنيع، وينقص الرصيد مع كل عملية شراء.', 'Quantities arrive automatically when production starts and decrease with every purchase.')}</p></div>
+  <div><small>{tr('مساحة عمل المشتريات', 'PROCUREMENT WORKSPACE')}</small><h2>{tr('ما الذي يجب شراؤه اليوم؟', 'What needs buying today?')}</h2><p>{tr('الكميات تصل تلقائيًا عند بدء التصنيع، وينقص الرصيد مع كل عملية شراء.', 'Quantities arrive automatically when production starts and decrease with every purchase.')}</p></div>
   <div class="ring" style="--value:{overall}"><b>{overall}%</b><span>{tr('تم تأمينه', 'secured')}</span></div>
 </section>
 
@@ -139,7 +141,7 @@
 {#if loading}
   <div class="state">{tr('جارٍ تحميل المهام…', 'Loading tasks…')}</div>
 {:else if loadError}
-  <div class="state error"><b>{tr('إعداد قاعدة البيانات مطلوب', 'Database setup required')}</b><span>{loadError}</span></div>
+  <div class="state error"><b>{tr('إعداد قاعدة البيانات مطلوب', 'Database setup required')}</b><span>{tr('تعذّر تحميل المهام. شغّل ملف supabase-procurement-tasks.sql أولًا.', 'Could not load tasks. Run supabase-procurement-tasks.sql first.')}</span></div>
 {:else if tasks.length === 0}
   <div class="state empty"><b>✓</b><strong>{tr('لا توجد مواد مطلوبة حاليًا', 'No materials are required')}</strong><span>{tr('ستظهر البنود تلقائيًا عند بدء تصنيع ماكينة.', 'Items appear when a machine enters production.')}</span></div>
 {:else if view === 'machine'}

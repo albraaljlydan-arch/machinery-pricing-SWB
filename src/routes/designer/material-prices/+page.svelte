@@ -3,6 +3,7 @@
   import { toast } from '$lib/stores/toast';
   import { locale } from '$lib/stores/locale';
   import { t } from '$lib/i18n/dict';
+  import MaterialPricesEditor from '$lib/components/MaterialPricesEditor.svelte';
 
   function handleChange(e: Event) {
     const raw = (e.target as HTMLInputElement).value;
@@ -31,12 +32,16 @@
   </div>
 </div>
 
-<div class="card muted-card">
-  <h3>{t($locale, 'materialPrices')}</h3>
-  <p>{t($locale, 'materialPricesStubDesc')}</p>
-</div>
+<!-- The same prices the calculator uses, read-only: Procurement edits them. -->
+<h2 class="section-title">{t($locale, 'materialPrices')}</h2>
+<MaterialPricesEditor />
 
 <style>
+  .section-title {
+    margin: 8px 0 12px;
+    font-size: 16px;
+    font-weight: 800;
+  }
   h1 {
     margin: 0 0 16px;
   }
@@ -87,17 +92,5 @@
     border-radius: 8px;
     font-weight: 700;
     cursor: pointer;
-  }
-  .muted-card {
-    color: var(--ink-soft);
-    font-size: 13px;
-  }
-  .muted-card h3 {
-    color: var(--ink);
-    font-size: 15px;
-    margin: 0 0 6px;
-  }
-  .muted-card p {
-    margin: 0;
   }
 </style>

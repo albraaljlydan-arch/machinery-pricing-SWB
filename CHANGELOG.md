@@ -10,6 +10,87 @@ Codex, or otherwise) making a real behavior or database change should add a
 line here — this is the one place anyone opening the repo can see "what
 changed and when" without reading the code or running git log.
 
+## 2026-09-24
+
+- **صفحة مشروع المصمم: لا حفظ إجباري، وحفظ على الجهاز عند ضعف الاتصال / Designer project page: no forced save, and offline saving**:
+  صارت الأزرار الثلاثة (رجوع، حفظ المسودة، إرسال إلى المدير) متجاورة في
+  بداية السطر (يمين بالعربية، يسار بالإنجليزية). الخروج من المشروع لم يعد يحفظ
+  تلقائيًا؛ إن وُجدت تعديلات غير محفوظة يظهر إشعار أعلى الصفحة فيه زر "حفظ"
+  لمدة 3 ثوانٍ ثم يختفي، ويسأل المتصفح قبل إغلاق التبويب. وإذا ضعف الاتصال عند
+  الحفظ تُحفظ التعديلات على الجهاز وتُرفع تلقائيًا عند عودته، دون أن تكتب فوق
+  مشروع أُرسل إلى المدير في الأثناء. كما صُحّحت آخر النصوص العامية إلى الفصحى.
+  The three actions now sit together at the reading start. Leaving no longer
+  auto-saves: with unsaved edits, a top toast offers "Save" for 3 seconds and
+  then disappears, and the browser asks before closing the tab. Saves made on
+  a weak connection are kept on the device and upload automatically when it
+  returns, never overwriting a project submitted in the meantime. The last
+  colloquial Arabic strings were rewritten in Modern Standard Arabic.
+
+- **باقات سماكة الصاج / Sheet thickness bands**:
+  صار تبويب الصاج في صفحة الأسعار مقسّمًا حسب السماكة (افتراضيًا: حتى 5 مم،
+  من 5 إلى 10 مم، أكثر من 10 مم)، ولكل باقة سعر جملة ومفرّق بالدولار لكل مادة.
+  زر "إعدادات السماكات" يسمح للمشتريات بإضافة باقة أو حذفها أو تغيير حدودها،
+  والباقة الجديدة تبدأ بأسعار الباقة التي انقسمت منها. الحاسبة تختار الباقة
+  حسب سماكة كل سطر صاج. يلزم تشغيل
+  [supabase-sheet-thickness-bands.sql](supabase-sheet-thickness-bands.sql)
+  بعد ملف أسعار الأنواع.
+  The Sheet Metal price tab is now split by thickness band (default ≤5 mm,
+  5–10 mm, >10 mm), each with USD wholesale and retail prices per material.
+  A "Thickness bands" panel lets Procurement add, delete or re-limit bands (a
+  new band starts with the prices of the band it splits), and the calculator
+  picks the band from each sheet row's thickness. Run the SQL file after the
+  category-prices one.
+
+- **أسعار المواد بالتبويبات وربطها بحاسبة المصمم / Material prices by tab, now driving the designer's calculator**:
+  صارت صفحة أسعار المشتريات مقسّمة إلى تبويبات: الصاج، البروفيلات، الميّال،
+  البواري والبوش، التربيعات والبلاطات، ولكل تبويب سعر جملة ومفرّق. كانت الحاسبة
+  سابقًا لا تقرأ أسعار المشتريات إطلاقًا (تأخذها من ذاكرة متصفح كل مصمم)؛
+  الآن تقرأها من قاعدة البيانات عند الدخول وتتحدّث فور الحفظ، وكل تبويب في
+  الحاسبة يأخذ سعر تبويبه. صار المصمم والمدير يريان الأسعار نفسها للقراءة فقط.
+  يلزم تشغيل [supabase-material-category-prices.sql](supabase-material-category-prices.sql)
+  في Supabase (يعبّئ الجدول بالأسعار الحالية).
+  Procurement's price page now has one tab per calculator category, each with
+  wholesale and retail prices. The calculator previously never read these
+  prices (it used each designer's browser storage); it now loads them at
+  sign-in, stays live, and applies each tab's price to the matching calculator
+  tab. Designer and Admin see the same prices read-only. Requires running the
+  SQL file in Supabase (seeded from the current prices).
+
+- **تحسينات صفحة الدخول والقائمة / Sign-in page and sidebar polish**:
+  صار شعار صفحة الدخول يظهر مباشرة بدل اللوحة البيضاء (ويتفتّح بالوضع
+  الداكن)، وأُضيف زر فاتح/داكن بجانب اللغة، وكلاهما ثابت على اليسار. أُزيلت
+  شارة الدور من فوق الشعار في القائمة الجانبية لأنها تظهر في بطاقة المستخدم،
+  وصُلّح بقاء "نظرة عامة" مفعّلة في كل صفحات القسم لكل المستخدمين.
+  The sign-in logo now shows directly (lifted in dark mode) instead of on a
+  white plate, with a light/dark toggle beside the language switch, both
+  pinned to the left. The role tag no longer overlaps the sidebar logo, and
+  the section's Overview link no longer stays highlighted on every page.
+
+- **صفحة الإعدادات / New Settings page**:
+  صار لكل مستخدم صفحة إعدادات تفتح من بطاقته أسفل القائمة الجانبية، فيها
+  معلومات الحساب، وتغيير كلمة المرور بعد التحقق من الحالية، واختيار اللغة
+  والمظهر، وتسجيل الخروج من هذا الجهاز أو من كل الأجهزة. أُزيل الإيميل وزر
+  الخروج وتبديل اللغة من الشريط العلوي، وبقي فيه الوضع الداكن والإشعارات فقط.
+  Every user now has a Settings page, opened from their card at the bottom of
+  the sidebar: account details, password change (current password required),
+  language and appearance, and sign-out from this device or all devices. The
+  topbar now keeps only the dark-mode toggle and notifications.
+
+- **إصلاح تبديل اللغة في المتابعة والمشتريات / Fixed language switching on Follow-up and Procurement**:
+  بعد تبديل اللغة كانت بعض النصوص تبقى باللغة السابقة حتى إعادة تحميل الصفحة
+  في صفحة المتابعة وطلبات الشراء، وكذلك حالة الموافقة في تقدّم المصنع وتفاصيل
+  الماكينة. صارت كل النصوص تتبدّل فورًا.
+  Some labels on the Follow-up, Purchase Requests, Factory Progress and Machine
+  Detail screens stayed in the previous language until a reload; they now
+  switch immediately.
+
+- **إصلاح وميض شاشة تسجيل الدخول / Fixed sign-in screen flashing after login**:
+  بعد إدخال الحساب وكلمة المرور كانت ترجع شاشة تسجيل الدخول للحظة بين شاشة
+  التحميل والواجهة؛ صارت شاشة التحميل تبقى ظاهرة حتى تفتح الواجهة مباشرة.
+  After signing in, the login form briefly reappeared between the loading
+  screen and the dashboard; the loading screen now stays until the dashboard
+  opens.
+
 ## 2026-09-23
 
 - **دعوة الموظف ليختار كلمة مروره / Staff email invitation and self-set password**:

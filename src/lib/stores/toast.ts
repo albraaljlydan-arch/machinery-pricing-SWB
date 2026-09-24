@@ -9,6 +9,9 @@ export interface ToastState {
   // Undo-mode fields — present only when this toast represents a delayed
   // action (Delete, Submit to Admin, etc.) rather than a plain notice.
   isUndo: boolean;
+  // Action-mode: a button (e.g. "Save") offered for `seconds`; the action
+  // runs only if clicked, and the toast simply disappears otherwise.
+  actionLabel: string | null;
   seconds: number;
   totalSeconds: number;
 }
@@ -18,6 +21,7 @@ function createToastStore() {
   let counter = 0;
   let timer: ReturnType<typeof setInterval> | null = null;
   let pendingAction: (() => void) | null = null;
+  let offeredAction: (() => void) | null = null;
 
   function clearTimer() {
     if (timer) {
@@ -30,8 +34,9 @@ function createToastStore() {
   function notify(message: string, kind: ToastKind = 'info', durationMs = 4000) {
     clearTimer();
     pendingAction = null;
+    offeredAction = null;
     const id = ++counter;
-    set({ id, kind, message, isUndo: false, seconds: 0, totalSeconds: 0 });
+    set({ id, kind, message, isUndo: false, actionLabel: null, seconds: 0, totalSeconds: 0 });
     timer = setInterval(() => {
       clearTimer();
       set(null);
@@ -47,7 +52,8 @@ function createToastStore() {
     const id = ++counter;
     let remaining = seconds;
     pendingAction = onConfirm;
-    set({ id, kind: 'info', message, isUndo: true, seconds: remaining, totalSeconds: seconds });
+    offeredAction = null;
+    set({ id, kind: 'info', message, isUndo: true, actionLabel: null, seconds: remaining, totalSeconds: seconds });
     timer = setInterval(() => {
       remaining -= 1;
       if (remaining <= 0) {
@@ -58,23 +64,55 @@ function createToastStore() {
         action?.();
         return;
       }
-      set({ id, kind: 'info', message, isUndo: true, seconds: remaining, totalSeconds: seconds });
+      set({ id, kind: 'info', message, isUndo: true, actionLabel: null, seconds: remaining, totalSeconds: seconds });
     }, 1000) as unknown as ReturnType<typeof setInterval>;
+  }
+
+  /** The opposite of confirmWithUndo: offers an optional action for
+   *  `seconds` (with the same countdown ring). Nothing happens unless the
+   *  button is clicked; when the countdown ends the toast just goes away. */
+  function offerAction(message: string, actionLabel: string, seconds: number, onAction: () => void, kind: ToastKind = 'info') {
+    clearTimer();
+    pendingAction = null;
+    offeredAction = onAction;
+    const id = ++counter;
+    let remaining = seconds;
+    set({ id, kind, message, isUndo: false, actionLabel, seconds: remaining, totalSeconds: seconds });
+    timer = setInterval(() => {
+      remaining -= 1;
+      if (remaining <= 0) {
+        clearTimer();
+        offeredAction = null;
+        set(null);
+        return;
+      }
+      set({ id, kind, message, isUndo: false, actionLabel, seconds: remaining, totalSeconds: seconds });
+    }, 1000) as unknown as ReturnType<typeof setInterval>;
+  }
+
+  function runOfferedAction() {
+    const action = offeredAction;
+    clearTimer();
+    offeredAction = null;
+    set(null);
+    action?.();
   }
 
   function cancelUndo() {
     clearTimer();
     pendingAction = null;
+    offeredAction = null;
     set(null);
   }
 
   function dismiss() {
     clearTimer();
     pendingAction = null;
+    offeredAction = null;
     set(null);
   }
 
-  return { subscribe, notify, confirmWithUndo, cancelUndo, dismiss };
+  return { subscribe, notify, confirmWithUndo, offerAction, runOfferedAction, cancelUndo, dismiss };
 }
 
 export const toast = createToastStore();

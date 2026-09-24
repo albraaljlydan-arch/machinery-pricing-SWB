@@ -15,6 +15,7 @@
   import { theme } from '$lib/stores/theme';
   import { t, roleLabel } from '$lib/i18n/dict';
   import { renderNotification } from '$lib/i18n/notifications';
+  import { initialsOf } from '$lib/initials';
   import logoUrl from '$lib/assets/logo.svg';
   import GlobalSearch from './GlobalSearch.svelte';
   import type { NavItem, NavGroup } from './navTypes';
@@ -27,6 +28,14 @@
 
   $: currentPath = $page.url.pathname;
   $: currentFull = currentPath + decodeURIComponent($page.url.search);
+
+  // Settings lives inside whichever section is open (/factory/settings, …),
+  // so the developer role — which can browse every section — stays put.
+  $: settingsHref = `/${currentPath.split('/')[1] ?? ''}/settings`;
+  $: onSettings = currentPath === settingsHref;
+  $: shownTitle = onSettings ? t($locale, 'settingsTitle') : pageTitle;
+  $: userEmail = $auth.session?.user?.email ?? '';
+  $: userInitials = initialsOf($auth.fullName, userEmail);
 
   interface NotificationRow {
     id: string;
@@ -70,19 +79,16 @@
   let mobileNavOpen = false;
   $: if ($page.url.pathname) mobileNavOpen = false;
 
-  function handleSignOut() {
-    supabase.auth.signOut();
-  }
   function toggleTheme() {
     theme.set($theme === 'light' ? 'dark' : 'light');
-  }
-  function setLocale(l: 'ar' | 'en') {
-    locale.set(l);
   }
 
   function isNavActive(href: string, path: string, fullPath: string): boolean {
     if (href.includes('?')) return href === fullPath;
     if (path === href) return !fullPath.includes('?');
+    // A section's home link (/admin, /factory, …) is only active on the home
+    // page itself; otherwise it stayed highlighted on every page under it.
+    if (href.split('/').filter(Boolean).length === 1) return false;
     return path.startsWith(href + '/');
   }
 </script>
@@ -93,7 +99,6 @@
   <aside class="sidebar">
     <div class="brand">
       <img class="brand-mark" src={logoUrl} alt="SWB Technology" />
-      <span class="role-tag">{signedInRole}</span>
     </div>
 
     <nav class="navlist">
@@ -134,7 +139,11 @@
       {/each}
     </nav>
 
-    <div class="sidebar-foot">{$auth.session?.user?.email ?? ''}</div>
+    <a class="user-card" class:active={onSettings} href={settingsHref} aria-label={t($locale, 'settingsOpen')} title={t($locale, 'settingsOpen')}>
+      <span class="avatar">{userInitials}</span>
+      <span class="who"><b dir="auto">{$auth.fullName || userEmail}</b><span>{signedInRole}</span></span>
+      <svg class="gear" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3" /><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1Z" /></svg>
+    </a>
   </aside>
 
   <div class="main">
@@ -142,13 +151,9 @@
       <button class="hamburger" on:click={() => (mobileNavOpen = !mobileNavOpen)} aria-label={t($locale, 'homeSection')}>
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M4 12h16M4 17h16" /></svg>
       </button>
-      <h1>{pageTitle}</h1>
+      <h1>{shownTitle}</h1>
       <GlobalSearch placeholder={searchPlaceholder} />
       <div class="topbar-right">
-        <div class="lang-switch">
-          <button class:active={$locale === 'ar'} on:click={() => setLocale('ar')}>العربية</button>
-          <button class:active={$locale === 'en'} on:click={() => setLocale('en')}>English</button>
-        </div>
         <button class="icon-btn" on:click={toggleTheme} aria-label={$theme === 'light' ? t($locale, 'darkMode') : t($locale, 'lightMode')} title={$theme === 'light' ? t($locale, 'darkMode') : t($locale, 'lightMode')}>
           {#if $theme === 'light'}
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8Z" /></svg>
@@ -184,13 +189,6 @@
             </div>
           {/if}
         </div>
-        <div class="profile-chip">
-          <div class="avatar">{($auth.session?.user?.email ?? '??').slice(0, 2).toUpperCase()}</div>
-          <div class="who"><b dir="ltr">{$auth.session?.user?.email ?? ''}</b><span>{signedInRole}</span></div>
-        </div>
-        <button class="icon-btn" on:click={handleSignOut} aria-label={t($locale, 'signOut')} title={t($locale, 'signOut')}>
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" /><path d="M16 17l5-5-5-5M21 12H9" /></svg>
-        </button>
       </div>
     </header>
 
@@ -224,11 +222,8 @@
     border-inline-end: 1px solid var(--border);
   }
   .brand {
-    position: relative;
-    min-height: 58px;
-    padding: 5px 8px 17px;
+    padding: 6px 8px 16px;
     border-bottom: 1px solid var(--border);
-    overflow: hidden;
   }
   .brand-mark {
     display: block;
@@ -236,23 +231,6 @@
     height: 34px;
     object-fit: contain;
     object-position: center;
-  }
-  .role-tag {
-    position: absolute;
-    inset-inline-end: 10px;
-    bottom: 5px;
-    max-width: calc(100% - 20px);
-    overflow: hidden;
-    padding: 1px 7px;
-    border: 1px solid color-mix(in srgb, var(--navy-3) 25%, var(--border));
-    border-radius: 4px;
-    background: var(--card);
-    color: var(--navy-3);
-    font-size: 9.5px;
-    font-weight: 800;
-    line-height: 1.4;
-    text-overflow: ellipsis;
-    white-space: nowrap;
   }
   nav.navlist {
     display: flex;
@@ -316,17 +294,65 @@
     font-family: var(--font-body);
     font-size: 9.5px;
   }
-  .sidebar-foot {
+  .user-card {
     margin-top: auto;
-    padding: 12px 10px;
-    font-size: 11px;
-    color: var(--steel-2);
-    border-top: 1px solid var(--border);
-    font-family: var(--font-num);
-    direction: ltr;
-    text-align: start;
-    line-height: 1.7;
-    word-break: break-all;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    background: var(--paper);
+    color: var(--ink);
+    transition: border-color 0.15s ease, background 0.15s ease;
+  }
+  .user-card:hover {
+    border-color: color-mix(in srgb, var(--navy-3) 45%, var(--border));
+  }
+  .user-card.active {
+    border-color: var(--navy-3);
+    box-shadow: 0 0 0 1px var(--navy-3);
+  }
+  .user-card .avatar {
+    width: 34px;
+    height: 34px;
+    border-radius: 50%;
+    background: linear-gradient(155deg, var(--navy-3), var(--navy));
+    color: #eaf4f8;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 800;
+    font-size: 12.5px;
+    flex-shrink: 0;
+  }
+  .user-card .who {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    flex: 1;
+  }
+  .user-card .who b {
+    font-size: 12.5px;
+    font-weight: 800;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .user-card .who span {
+    font-size: 10.5px;
+    color: var(--ink-soft);
+  }
+  .user-card .gear {
+    width: 17px;
+    height: 17px;
+    flex-shrink: 0;
+    color: var(--ink-soft);
+    transition: transform 0.3s ease;
+  }
+  .user-card:hover .gear {
+    transform: rotate(45deg);
+    color: var(--navy-3);
   }
 
   .main {
@@ -375,26 +401,6 @@
     align-items: center;
     gap: 14px;
     margin-inline-start: auto;
-  }
-  .lang-switch {
-    display: flex;
-    border: 1px solid var(--border);
-    border-radius: 10px;
-    overflow: hidden;
-    background: var(--paper);
-    flex-shrink: 0;
-  }
-  .lang-switch button {
-    border: none;
-    background: transparent;
-    color: var(--ink-soft);
-    font-size: 12.5px;
-    font-weight: 700;
-    padding: 8px 12px;
-  }
-  .lang-switch button.active {
-    background: var(--navy);
-    color: #fff;
   }
   .icon-btn {
     position: relative;
@@ -525,16 +531,6 @@
   .notif-msg {
     line-height: 1.5;
   }
-  .profile-chip {
-    display: flex;
-    align-items: center;
-    gap: 9px;
-    padding: 5px 12px 5px 6px;
-    border: 1px solid var(--border);
-    border-radius: 30px;
-    background: var(--paper);
-    max-width: 220px;
-  }
   .avatar {
     width: 30px;
     height: 30px;
@@ -548,22 +544,6 @@
     font-size: 12.5px;
     font-family: var(--font-num);
     flex-shrink: 0;
-  }
-  .profile-chip .who {
-    overflow: hidden;
-  }
-  .profile-chip .who b {
-    display: block;
-    font-size: 12px;
-    font-weight: 700;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
-  .profile-chip .who span {
-    display: block;
-    font-size: 10.5px;
-    color: var(--ink-soft);
   }
 
   .content {
@@ -645,22 +625,11 @@
       padding: 14px 16px;
       gap: 10px;
     }
-    .profile-chip .who {
-      display: none;
-    }
-    .lang-switch button {
-      padding: 7px 9px;
-      font-size: 11.5px;
-    }
   }
 
   @media (max-width: 480px) {
     .topbar-right {
       gap: 6px;
-    }
-    .lang-switch button {
-      padding: 6px 8px;
-      font-size: 10.5px;
     }
     .content {
       padding: 18px 14px 40px;

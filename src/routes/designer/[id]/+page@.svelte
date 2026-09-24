@@ -1,6 +1,7 @@
 <script lang="ts">
-  import { onMount } from 'svelte';
-  import { goto } from '$app/navigation';
+  import { onMount, tick } from 'svelte';
+  import { get } from 'svelte/store';
+  import { goto, beforeNavigate } from '$app/navigation';
   import { page } from '$app/stores';
   import { supabase } from '$lib/supabaseClient';
   import { auth } from '$lib/stores/auth';
@@ -20,10 +21,11 @@
   import { locale } from '$lib/stores/locale';
   import { t, statusLabel } from '$lib/i18n/dict';
   import { safetyFactor } from '$lib/stores/safetyFactor';
+  import { clearPendingSave, isNetworkError, pendingSaveFor, pushProjectSave, queueSave, type ProjectDraftUpdate } from '$lib/offlineSaves';
 
   const getMaterialName = (id: string) => MATERIALS.find((m) => m.id === id)?.nameEn ?? id;
 
-  $: projectId = $page.params.id;
+  $: projectId = $page.params.id ?? '';
 
   let loading = true;
   let saving = false;
@@ -74,8 +76,34 @@
     savedReviewFlags = d.reviewFlags;
     projectSafetyFactor = Number(d.safetyFactor) || 0;
     renderImageUrl = data.render_image_url ?? null;
+
+    // A save made on a weak connection that has not uploaded yet is newer
+    // than the server copy — show it, so reopening never loses that work.
+    const pending = canEdit ? pendingSaveFor(projectId, $auth.session?.user.id) : undefined;
+    hasPendingLocalSave = !!pending;
+    if (pending) {
+      const p = pending.update.project_data as Record<string, any>;
+      projectName = pending.update.project_name;
+      clientName = pending.update.client;
+      sheetRows = p.sheetRows ?? sheetRows;
+      profileRows = p.profileRows ?? profileRows;
+      millRows = p.millRows ?? millRows;
+      pipeRows = p.pipeRows ?? pipeRows;
+      squareRows = p.squareRows ?? squareRows;
+      orderRows = p.orderRows ?? orderRows;
+      operations = p.operations ?? operations;
+    }
     loading = false;
+    // Whatever was just loaded counts as saved; edits after this make the page dirty.
+    await tick();
+    savedSnapshot = currentSnapshot;
   }
+
+  // ---- unsaved-changes tracking ---------------------------------------------
+  let savedSnapshot = '';
+  let hasPendingLocalSave = false;
+  $: currentSnapshot = JSON.stringify({ projectName, clientName, sheetRows, profileRows, millRows, pipeRows, squareRows, orderRows, operations });
+  $: dirty = canEdit && !loading && savedSnapshot !== '' && currentSnapshot !== savedSnapshot;
 
   onMount(load);
 
@@ -152,54 +180,80 @@
     else renderImageUrl = null;
   }
 
+  function buildUpdate(finalName: string): ProjectDraftUpdate {
+    const totals = computeGrandTotals({ sheets: sheetRows, profiles: profileRows, mills: millRows, pipes: pipeRows, squares: squareRows, orders: orderRows, operations });
+    return { project_name: finalName, client: clientName, total_cost: totals.totalPrice, project_data: { ...buildProjectData(), projectName: finalName } };
+  }
+
+  // Saves a draft, or keeps it on this device when the connection fails (it
+  // uploads automatically later — see lib/offlineSaves.ts). Uses get(locale)
+  // because it can run from a toast after this page has been left.
+  async function saveProjectDraft(id: string, userId: string, update: ProjectDraftUpdate): Promise<'saved' | 'queued' | 'failed'> {
+    const result = await pushProjectSave(id, update);
+    const loc = get(locale);
+    if (result.ok) {
+      clearPendingSave(id);
+      return 'saved';
+    }
+    if (result.reason === 'network') {
+      queueSave({ projectId: id, userId, update });
+      toast.notify(t(loc, 'offlineSavedLocally'), 'info', 7000);
+      return 'queued';
+    }
+    toast.notify(result.reason === 'locked' ? t(loc, 'projectNoLongerEditable') : t(loc, 'errorSavingPrefix') + result.message, 'error');
+    return 'failed';
+  }
+
   async function saveDraft() {
     saving = true;
-    const totals = computeGrandTotals({ sheets: sheetRows, profiles: profileRows, mills: millRows, pipes: pipeRows, squares: squareRows, orders: orderRows, operations });
+    const snapshot = currentSnapshot;
     const trimmed = projectName.trim();
     const finalName = trimmed || nextUntitledProjectName(await fetchOtherProjectNames());
-    const { error } = await supabase
-      .from('projects')
-      .update({ project_name: finalName, client: clientName, total_cost: totals.totalPrice, project_data: buildProjectData() })
-      .eq('id', projectId);
+    const outcome = await saveProjectDraft(projectId, $auth.session?.user.id ?? '', buildUpdate(finalName));
     saving = false;
-    if (error) {
-      toast.notify(t($locale, 'errorSavingPrefix') + error.message, 'error');
-    } else {
-      projectName = finalName;
+    if (outcome === 'failed') return;
+    // Edits typed while the request was in flight still count as unsaved.
+    const editedDuringSave = currentSnapshot !== snapshot;
+    projectName = finalName;
+    await tick();
+    savedSnapshot = editedDuringSave ? snapshot : currentSnapshot;
+    hasPendingLocalSave = outcome === 'queued';
+    if (outcome === 'saved') {
       if (!trimmed) toast.notify(t($locale, 'savedAsNameTemplate').replace('{name}', finalName), 'success', 6000);
       else toast.notify(t($locale, 'draftSavedToast'), 'success');
     }
   }
 
-  // Leaving the calculator (← Back to Dashboard) without ever clicking
-  // "💾 Save Draft" used to just discard whatever was typed. This silently
-  // persists it as a Draft first — same "Untitled Project [N]" naming as a
-  // manual save — so the person's edits are never lost just because they
-  // forgot to click Save before leaving.
-  let leaving = false;
-  async function handleBackToDashboard() {
-    if (!canEdit || leaving) {
-      goto('/designer');
+  // Leaving no longer saves behind the designer's back. If there are unsaved
+  // edits, the navigation goes ahead and a toast offers "Save" for 3 seconds;
+  // when it runs out, the edits are simply discarded. Closing the tab asks
+  // the browser's own "leave site?" question instead.
+  let allowLeave = false;
+  beforeNavigate(({ type, cancel, to }) => {
+    if (!dirty || allowLeave) return;
+    if (type === 'leave') {
+      cancel();
       return;
     }
-    leaving = true;
-    const totals = computeGrandTotals({ sheets: sheetRows, profiles: profileRows, mills: millRows, pipes: pipeRows, squares: squareRows, orders: orderRows, operations });
-    const trimmed = projectName.trim();
-    const finalName = trimmed || nextUntitledProjectName(await fetchOtherProjectNames());
-    const { error } = await supabase
-      .from('projects')
-      .update({ project_name: finalName, client: clientName, total_cost: totals.totalPrice, project_data: buildProjectData() })
-      .eq('id', projectId);
-    if (error) {
-      toast.notify(t($locale, 'autoSaveErrorPrefix') + error.message, 'error');
-    } else if (!trimmed) {
-      toast.notify(t($locale, 'savedAsNameShortTemplate').replace('{name}', finalName), 'success', 6000);
-    } else {
-      toast.notify(t($locale, 'draftSavedBeforeLeaving'), 'success');
-    }
-    goto('/designer');
+    if (to?.url.pathname === $page.url.pathname) return;
+    offerSaveAfterLeaving();
+  });
+
+  function offerSaveAfterLeaving() {
+    const id = projectId;
+    const userId = $auth.session?.user.id ?? '';
+    const typedName = projectName.trim();
+    const update = buildUpdate(typedName);
+    toast.offerAction(t($locale, 'leftWithoutSaving'), t($locale, 'saveNowAction'), 3, async () => {
+      const finalName = typedName || nextUntitledProjectName(await fetchOtherProjectNames());
+      const outcome = await saveProjectDraft(id, userId, { ...update, project_name: finalName, project_data: { ...update.project_data, projectName: finalName } });
+      if (outcome === 'saved') toast.notify(t(get(locale), 'draftSavedToast'), 'success');
+    });
   }
 
+  function handleBackToDashboard() {
+    goto('/designer');
+  }
   function submitToAdmin() {
     const trimmed = projectName.trim();
     if (!trimmed || trimmed.toLowerCase().startsWith('untitled project')) {
@@ -219,8 +273,10 @@
         .eq('id', projectId);
       submitting = false;
       if (error) {
-        toast.notify(t($locale, 'errorSubmittingPrefix') + error.message, 'error');
+        toast.notify(isNetworkError(error) ? t($locale, 'submitOfflineError') : t($locale, 'errorSubmittingPrefix') + error.message, 'error');
       } else {
+        clearPendingSave(projectId);
+        allowLeave = true;
         notifyRole('admin', encodeNotification('projectSubmitted', { name: trimmed }), `/admin/projects/${projectId}`);
         notifyRole('developer', encodeNotification('projectSubmitted', { name: trimmed }), `/admin/projects/${projectId}`);
         logProjectEvent(projectId, 'submitted', $auth.session?.user.id);
@@ -234,17 +290,22 @@
      calculator inside keeps dir="ltr", because its tables are English by
      design. -->
 <div class="page">
+  <!-- All actions sit together at the reading start: right in Arabic, left in English. -->
   <div class="topbar">
-    <button class="btn-back" on:click={handleBackToDashboard} disabled={leaving}>{leaving ? t($locale, 'savingGeneric') : t($locale, 'backToDashboard')}</button>
+    <div class="actions">
+      <button class="btn-back" on:click={handleBackToDashboard}>{t($locale, 'backToDashboard')}</button>
+      {#if canEdit}
+        <button class="btn-save" class:dirty on:click={saveDraft} disabled={saving}>{saving ? t($locale, 'savingGeneric') : t($locale, 'saveDraftAction')}</button>
+        <button class="btn-submit" on:click={submitToAdmin} disabled={submitting}>{submitting ? t($locale, 'submittingGeneric') : t($locale, 'submitToAdminAction')}</button>
+      {/if}
+    </div>
     {#if !canEdit}
       <span class="readonly-note">{t($locale, 'readOnlyLockedTemplate').replace('{status}', statusLabel($locale, status))}</span>
     {/if}
-    <div class="spacer"></div>
-    {#if canEdit}
-      <button class="btn-save" on:click={saveDraft} disabled={saving}>{saving ? t($locale, 'savingGeneric') : t($locale, 'saveDraftAction')}</button>
-      <button class="btn-submit" on:click={submitToAdmin} disabled={submitting}>{submitting ? t($locale, 'submittingGeneric') : t($locale, 'submitToAdminAction')}</button>
-    {/if}
   </div>
+  {#if hasPendingLocalSave && canEdit}
+    <div class="pending-note" role="status">{t($locale, 'offlinePendingNotice')}</div>
+  {/if}
 
   {#if loading}
     <p class="muted">{t($locale, 'loading')}</p>
@@ -308,11 +369,28 @@
   .topbar {
     display: flex;
     align-items: center;
+    flex-wrap: wrap;
     gap: 14px;
     margin-bottom: 18px;
   }
-  .spacer {
-    flex: 1;
+  .actions {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+  .btn-save.dirty {
+    box-shadow: 0 0 0 2px var(--amber);
+  }
+  .pending-note {
+    margin: -6px 0 16px;
+    padding: 9px 12px;
+    border-radius: 8px;
+    background: var(--warn-bg, var(--paper));
+    color: var(--warn-ink, var(--ink));
+    border: 1px solid var(--warn-border, var(--border));
+    font-size: 12.5px;
+    font-weight: 600;
   }
   .btn-back {
     background: #64748b;

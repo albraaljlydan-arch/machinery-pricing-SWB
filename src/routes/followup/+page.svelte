@@ -30,7 +30,7 @@
   let tasks: FollowupTask[] = [];
   let updates: TaskUpdate[] = [];
   let loading = true;
-  let loadError = '';
+  let loadError = false;
   let filter: 'active' | 'all' | 'done' = 'active';
   let savingTask: string | null = null;
   let openTask: string | null = null;
@@ -38,11 +38,13 @@
   let notes: Record<string, string> = {};
 
   const today = new Date().toISOString().slice(0, 10);
-  const ar = (arabic: string, english: string) => $locale === 'ar' ? arabic : english;
+  // Reactive so every label re-renders when the language is switched; a
+  // plain const kept the first language until the page was reloaded.
+  $: ar = (arabic: string, english: string) => $locale === 'ar' ? arabic : english;
 
   async function load() {
     loading = true;
-    loadError = '';
+    loadError = false;
     const [taskRes, updateRes] = await Promise.all([
       supabase.from('followup_tasks').select('*').order('project_name_snapshot').order('created_at'),
       supabase.from('followup_task_updates')
@@ -52,10 +54,7 @@
     ]);
 
     if (taskRes.error) {
-      loadError = ar(
-        'تعذّر تحميل المهام. تأكد من تشغيل ملف supabase-followup-tasks.sql في Supabase.',
-        'Could not load tasks. Make sure supabase-followup-tasks.sql has been run in Supabase.'
-      );
+      loadError = true;
     } else {
       tasks = (taskRes.data || []).map((task) => ({
         ...task,
@@ -189,7 +188,7 @@
 {#if loading}
   <div class="state-card">{ar('جارٍ تحميل المهام…', 'Loading tasks…')}</div>
 {:else if loadError}
-  <div class="state-card error"><b>{ar('إعداد قاعدة البيانات مطلوب', 'Database setup required')}</b><span>{loadError}</span></div>
+  <div class="state-card error"><b>{ar('إعداد قاعدة البيانات مطلوب', 'Database setup required')}</b><span>{ar('تعذّر تحميل المهام. تأكد من تشغيل ملف supabase-followup-tasks.sql في Supabase.', 'Could not load tasks. Make sure supabase-followup-tasks.sql has been run in Supabase.')}</span></div>
 {:else if grouped.length === 0}
   <div class="state-card empty">
     <span class="empty-icon">✓</span>
@@ -258,7 +257,7 @@
                     <label class="note-field">
                       <span>{ar('ملاحظة (اختياري)', 'Note (optional)')}</span>
                       <input value={notes[task.id] ?? ''} on:input={(event) => setNote(task.id, event.currentTarget.value)}
-                        placeholder={ar('شو تم إنجازه اليوم؟', 'What was completed today?')} />
+                        placeholder={ar('ما الذي أُنجز اليوم؟', 'What was completed today?')} />
                     </label>
                     <button class="save" disabled={savingTask === task.id} on:click={() => deduct(task)}>
                       {savingTask === task.id ? ar('جارٍ الحفظ…', 'Saving…') : ar('تأكيد الخصم', 'Confirm deduction')}

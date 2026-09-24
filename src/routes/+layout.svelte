@@ -9,10 +9,35 @@
   import { theme } from '$lib/stores/theme';
   import { supabase } from '$lib/supabaseClient';
   import Toast from '$lib/components/Toast.svelte';
+  import { toast } from '$lib/stores/toast';
+  import { t } from '$lib/i18n/dict';
+  import { get } from 'svelte/store';
+  import { pendingSaves, syncPendingSaves } from '$lib/offlineSaves';
 
   onMount(() => {
     auth.init();
+    // Draft saves kept on this device during a weak connection upload as
+    // soon as it returns, and are retried every 30 s while any remain.
+    window.addEventListener('online', syncOfflineSaves);
+    const retry = setInterval(() => {
+      if (Object.keys(get(pendingSaves)).length) syncOfflineSaves();
+    }, 30000);
+    return () => {
+      window.removeEventListener('online', syncOfflineSaves);
+      clearInterval(retry);
+    };
   });
+
+  async function syncOfflineSaves() {
+    const userId = get(auth).session?.user.id;
+    if (!userId) return;
+    const { synced, locked } = await syncPendingSaves(userId);
+    const loc = get(locale);
+    if (locked.length) toast.notify(t(loc, 'offlineSyncLocked').replace('{names}', locked.join('، ')), 'error', 8000);
+    else if (synced.length) toast.notify(t(loc, 'offlineSynced').replace('{names}', synced.join('، ')), 'success', 6000);
+  }
+  $: signedInUserId = $auth.session?.user.id;
+  $: if (signedInUserId) syncOfflineSaves();
 
   // Dashboard-wide direction + theme, applied at the document level so
   // every dashboard shell (Admin/Designer/Factory/Accounting) flips
@@ -69,7 +94,7 @@
   <slot />
 {:else if $auth.loading}
   <div style="min-height:100vh;display:flex;align-items:center;justify-content:center;background:var(--paper);color:var(--ink-soft);">
-    Loding SWB System
+    Loading SWB System
   </div>
 {:else if $auth.profileError}
   <div style="min-height:100vh;display:flex;align-items:center;justify-content:center;background:var(--paper);flex-direction:column;gap:14px;">
@@ -77,6 +102,13 @@
     <button on:click={handleSignOut} style="background:var(--navy);color:#fff;border:none;padding:8px 18px;border-radius:8px;font-weight:700;">
       Sign Out
     </button>
+  </div>
+{:else if ($page.url.pathname === '/login' || $page.url.pathname === '/signup') && $auth.session && $auth.userRole}
+  <!-- Just signed in: the role has resolved but the redirect to the home
+       screen is still loading. Showing the form here flashed the sign-in
+       page for a moment between the loading screen and the dashboard. -->
+  <div style="min-height:100vh;display:flex;align-items:center;justify-content:center;background:var(--paper);color:var(--ink-soft);">
+    Loading SWB System
   </div>
 {:else if $page.url.pathname === '/login' || $page.url.pathname === '/signup'}
   <slot />
@@ -87,7 +119,7 @@
        already in flight; this is what shows for the frame or two it takes,
        instead of the forbidden page itself. -->
   <div style="min-height:100vh;display:flex;align-items:center;justify-content:center;background:var(--paper);color:var(--ink-soft);">
-    Loding SWB System
+    Loading SWB System
   </div>
 {/if}
 

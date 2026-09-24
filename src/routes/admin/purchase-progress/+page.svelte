@@ -7,7 +7,7 @@
   });
 </script>
 
-<div class="redirecting">Loding SWB System</div>
+<div class="redirecting">Loading SWB System</div>
 
 <style>
   .redirecting {
